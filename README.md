@@ -1,3 +1,4 @@
 # GoNetPad
 
-* I recomend editing the hosting address in main.go to something that works with your network.
+* Asks for user input for host ip
+* Serves the websocket on port 8081 and the html server on port 8080.
