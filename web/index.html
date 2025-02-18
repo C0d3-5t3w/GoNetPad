@@ -60,10 +60,8 @@
 
             ws.onmessage = (event) => {
                 try {
-                    // Check if the message is valid text content
                     if (typeof event.data === 'string' && !event.data.startsWith('iVBOR')) {
                         if (event.data.startsWith('[{') && event.data.endsWith('}]')) {
-                            // This appears to be an error message, don't display it
                             console.error('Received error message:', event.data);
                             return;
                         }

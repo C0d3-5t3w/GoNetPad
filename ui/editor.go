@@ -9,7 +9,7 @@ import (
 )
 
 type Editor struct {
-	TextArea    *widget.Entry // Changed from TextEdit to Entry
+	TextArea    *widget.Entry 
 	LineNumbers *widget.Label
 	Window      fyne.Window
 	History     *TextHistory
@@ -17,7 +17,7 @@ type Editor struct {
 
 func NewEditor(window fyne.Window) *Editor {
 	editor := &Editor{
-		TextArea:    widget.NewMultiLineEntry(), // Using NewMultiLineEntry instead of NewTextEdit
+		TextArea:    widget.NewMultiLineEntry(), 
 		LineNumbers: widget.NewLabel("1"),
 		Window:      window,
 		History:     NewTextHistory(),
@@ -36,7 +36,7 @@ func (e *Editor) setupUI() {
 }
 
 func (e *Editor) handleFormatCode() {
-	formatted, err := helpers.FormatCode(e.TextArea.Text) // Using Text property instead of Text() method
+	formatted, err := helpers.FormatCode(e.TextArea.Text)
 	if err != nil {
 		dialog.ShowError(err, e.Window)
 		return
@@ -44,4 +44,3 @@ func (e *Editor) handleFormatCode() {
 	e.TextArea.SetText(formatted)
 }
 
-// Additional methods would go here...

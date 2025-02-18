@@ -23,8 +23,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Remove the port constants as they're now in config package
-
 func getHostIP() string {
 	var hostIP string
 	if envIP := os.Getenv("GONETPAD_HOST"); envIP != "" {
@@ -61,7 +59,6 @@ func main() {
 
 	w := a.NewWindow("5T3Ws Custom Text Editor")
 
-	// Add window capture ticker after window creation
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		for range ticker.C {
@@ -306,7 +303,6 @@ func main() {
 	w.Resize(fyne.NewSize(800, 600))
 	w.SetFixedSize(false)
 
-	// Start servers in separate goroutines BEFORE ShowAndRun
 	go func() {
 		logger.InfoLogger.Printf("Starting WebSocket server on %s%s\n", hostIP, config.WebSocketPort)
 		if err := http.ListenAndServe(hostIP+config.WebSocketPort, nil); err != nil {
@@ -334,11 +330,10 @@ func formatCode(content string) (string, error) {
 
 func handleWebSocketConnections() {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		return true // Allow all origins for testing
+		return true 
 	}
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		// Add CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -376,8 +371,7 @@ func serveIndexHTML() {
 func handleWebSocketMessages() {
 	for {
 		msg := <-broadcast
-		// Only broadcast if the message is text content, not an image
-		if !strings.HasPrefix(msg, "iVBOR") { // Check if it's not a base64 PNG image
+		if !strings.HasPrefix(msg, "iVBOR") { 
 			for client := range clients {
 				err := client.WriteMessage(websocket.TextMessage, []byte(msg))
 				if err != nil {

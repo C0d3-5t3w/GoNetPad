@@ -1,6 +1,5 @@
 .PHONY: all build clean run test package
 
-# Project variables
 MAIN_BINARY := GoNetPad
 BUILD_DIR := build
 CMD_DIR := cmd
