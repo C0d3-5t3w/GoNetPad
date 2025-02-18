@@ -1,3 +1,3 @@
 # GoNetPad
 
-* I recomend editing the hoating address in main.go to something that work with your network.
+* I recomend editing the hosting address in main.go to something that works with your network.
