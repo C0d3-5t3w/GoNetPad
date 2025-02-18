@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="description" content="V13W">
+    <meta name="author" content="5T3W">
+    <link rel="stylesheet" href="/static/css/style.css?v=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css"> 
+    <title>5T3W V13W</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/go.min.js"></script>
+    <script src="/static/js/highlight-handler.js"></script>
+    <style>
+        .editor-container {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            flex-direction: column;
+        }
+        
+        #textArea {
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+            border: none;
+            resize: none;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: black;
+            color: white;
+            border-radius: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            #textArea {
+                font-size: 16px;
+                padding: 8px;
+            }
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const ws = new WebSocket("ws://192.168.1.18:8081/ws");
+            const textArea = document.getElementById("textArea");
+
+            ws.onmessage = (event) => {
+                try {
+                    // Check if the message is valid text content
+                    if (typeof event.data === 'string' && !event.data.startsWith('iVBOR')) {
+                        if (event.data.startsWith('[{') && event.data.endsWith('}]')) {
+                            // This appears to be an error message, don't display it
+                            console.error('Received error message:', event.data);
+                            return;
+                        }
+                        textArea.value = event.data;
+                    }
+                } catch (error) {
+                    console.error('Error processing message:', error);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket connection closed");
+                textArea.value = "Connection lost. Attempting to reconnect...";
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                textArea.value = "Connection error. Please check your connection.";
+            };
+        });
+    </script>
+    <script src="static/js/mobile.js"></script>
+</head>
+<body>
+    <div class="editor-container">
+        <textarea id="textArea" readonly></textarea>
+    </div>
+</body>
+</html>

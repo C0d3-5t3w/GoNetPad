@@ -1,0 +1,58 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    flex-wrap: inherit;
+}
+
+pre {
+    margin: 0;
+    padding: 8px;
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+}
+
+#output {
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow-y: auto;
+}
+
+html, body {
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+#textArea {
+    color: white;
+    background-color: black;
+    width: 10000vw;
+    height: 10000vh;
+    display: flex;
+    box-sizing: border-box;
+    padding: 20px;
+    resize: none;
+    border: none;
+    outline: none;
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 1.4;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
