@@ -3,8 +3,8 @@ package websocket
 import (
 	"net/http"
 
-	"github.com/c0d3-5t3w/GoNetPad/config"
-	"github.com/c0d3-5t3w/GoNetPad/logger"
+	"github.com/c0d3-5t3w/GoNetPad/internal/config"
+	"github.com/c0d3-5t3w/GoNetPad/internal/logger"
 	"github.com/gorilla/websocket"
 )
 

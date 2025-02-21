@@ -55,7 +55,9 @@
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const ws = new WebSocket("ws://192.168.1.18:8081/ws");
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = window.location.host;
+            const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
             const textArea = document.getElementById("textArea");
 
             ws.onmessage = (event) => {

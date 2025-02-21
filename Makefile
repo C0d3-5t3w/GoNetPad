@@ -1,7 +1,7 @@
 .PHONY: all build clean run test package
 
 MAIN_BINARY := GoNetPad
-BUILD_DIR := build
+BUILD_DIR := GoNetPad
 CMD_DIR := cmd
 
 GOOS ?= darwin
@@ -14,6 +14,7 @@ all: build
 build:
 	@echo "Building application..."
 	@mkdir -p $(BUILD_DIR)
+	@cp -r pkg/web $(BUILD_DIR)/web
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
 		-ldflags="$(LDFLAGS)" \
 		-trimpath \

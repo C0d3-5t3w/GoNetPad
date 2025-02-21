@@ -15,11 +15,11 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"github.com/c0d3-5t3w/GoNetPad/capture"
-	"github.com/c0d3-5t3w/GoNetPad/config"
+	"github.com/c0d3-5t3w/GoNetPad/internal/capture"
+	"github.com/c0d3-5t3w/GoNetPad/internal/config"
 	"github.com/c0d3-5t3w/GoNetPad/internal/locale"
-	"github.com/c0d3-5t3w/GoNetPad/logger"
-	"github.com/c0d3-5t3w/GoNetPad/themes"
+	"github.com/c0d3-5t3w/GoNetPad/internal/logger"
+	"github.com/c0d3-5t3w/GoNetPad/internal/themes"
 	"github.com/gorilla/websocket"
 )
 
@@ -359,7 +359,7 @@ func handleWebSocketConnections() {
 
 func serveIndexHTML() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := os.Stat("web/index.html"); os.IsNotExist(err) {
+		if _, err := os.Stat("bin/web/index.html"); os.IsNotExist(err) {
 			http.Error(w, "index.html not found", http.StatusNotFound)
 			logger.ErrorLogger.Println("index.html not found")
 			return
