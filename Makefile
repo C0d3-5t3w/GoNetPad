@@ -19,7 +19,7 @@ build:
 		-ldflags="$(LDFLAGS)" \
 		-trimpath \
 		-o $(BUILD_DIR)/$(MAIN_BINARY) \
-		./$(CMD_DIR)/main.go
+		./$(CMD_DIR)/GoNetPad/main.go
 
 clean:
 	@echo "Cleaning up..."
