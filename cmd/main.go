@@ -364,7 +364,7 @@ func serveIndexHTML() {
 			logger.ErrorLogger.Println("index.html not found")
 			return
 		}
-		http.ServeFile(w, r, "web/index.html")
+		http.ServeFile(w, r, "website/index.html")
 	})
 }
 
