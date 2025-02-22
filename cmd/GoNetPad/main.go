@@ -359,7 +359,7 @@ func handleWebSocketConnections() {
 
 func serveIndexHTML() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := os.Stat("bin/web/index.html"); os.IsNotExist(err) {
+		if _, err := os.Stat("internal/website/index.html"); os.IsNotExist(err) {
 			http.Error(w, "index.html not found", http.StatusNotFound)
 			logger.ErrorLogger.Println("index.html not found")
 			return
