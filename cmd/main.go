@@ -15,11 +15,11 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"github.com/c0d3-5t3w/GoNetPad/internal/capture"
-	"github.com/c0d3-5t3w/GoNetPad/internal/config"
-	"github.com/c0d3-5t3w/GoNetPad/internal/locale"
-	"github.com/c0d3-5t3w/GoNetPad/internal/logger"
-	"github.com/c0d3-5t3w/GoNetPad/internal/themes"
+	"github.com/c0d3-5t3w/GoNetPad/internal/app/capture"
+	"github.com/c0d3-5t3w/GoNetPad/internal/app/config"
+	"github.com/c0d3-5t3w/GoNetPad/internal/app/locale"
+	"github.com/c0d3-5t3w/GoNetPad/internal/app/logger"
+	"github.com/c0d3-5t3w/GoNetPad/internal/app/themes"
 	"github.com/gorilla/websocket"
 )
 
