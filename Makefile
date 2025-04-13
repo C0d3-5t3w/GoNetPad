@@ -19,7 +19,7 @@ help:
 	@echo "  make deps      - Install dependencies"
 	@echo "  make help      - Show this help message"
 
-all: clean deps build run
+all: clean deps ts sass build run
 
 build:
 	@echo "Building application..."
@@ -33,7 +33,8 @@ build:
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
-	@rm -f $(MAIN_BINARY).app
+	@rm -rf pkg/website/assets/js
+	@rm -rf pkg/website/assets/css
 
 deps:
 	@echo "Installing dependencies..."
@@ -41,6 +42,14 @@ deps:
 	@go mod download
 	@go mod vendor
 	@go mod verify
+
+ts:
+	@echo "Building TypeScript files..."
+	@tsc --outDir pkg/website/assets/js
+
+sass:
+	@echo "Building SASS files..."
+	@sass --style compressed pkg/website/static/sass/style.scss:pkg/website/assets/css/style.css
 
 run: 
 	@echo "Running application..."

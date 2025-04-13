@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "lib": ["dom", "es2015", "es2016", "es2017"],
+    "module": "es2015",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./pkg/website/static/js",
+    "sourceMap": true
+  },
+  "include": [
+    "./pkg/website/static/ts/**/*.ts"
+  ]
+}
