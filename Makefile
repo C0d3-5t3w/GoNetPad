@@ -1,15 +1,25 @@
-.PHONY: all build clean run
+.PHONY: help all build clean run
 
 MAIN_BINARY := GoNetPad
 BUILD_DIR := GoNetPad
-CMD_DIR := cmd
+CMD_DIR := cmd/app
 
 GOOS ?= darwin
-GOARCH ?= amd64
+GOARCH ?= arm64
 CGO_ENABLED ?= 1
 LDFLAGS = -w -s
 
-all: clean build run
+help:
+	@echo "Makefile for $(MAIN_BINARY)"
+	@echo "Usage:"
+	@echo "  make all       - Build and run the application"
+	@echo "  make build     - Build the application"
+	@echo "  make clean     - Clean up build artifacts"
+	@echo "  make run       - Run the application"
+	@echo "  make deps      - Install dependencies"
+	@echo "  make help      - Show this help message"
+
+all: clean deps build run
 
 build:
 	@echo "Building application..."
@@ -24,6 +34,12 @@ clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
 	@rm -f $(MAIN_BINARY).app
+
+deps:
+	@go mod tidy
+	@go mod download
+	@go mod vendor
+	@go mod verify
 
 run: 
 	@echo "Running application..."
