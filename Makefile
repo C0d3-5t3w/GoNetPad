@@ -33,8 +33,8 @@ build:
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BUILD_DIR)
-	@rm -rf pkg/website/assets/js
-	@rm -rf pkg/website/assets/css
+	@rm -rf ./pkg/website/static/js
+	@rm -rf ./pkg/website/static/css
 
 deps:
 	@echo "Installing dependencies..."
@@ -45,11 +45,11 @@ deps:
 
 ts:
 	@echo "Building TypeScript files..."
-	@tsc --outDir pkg/website/assets/js
+	@tsc --outDir pkg/website/static/js
 
 sass:
 	@echo "Building SASS files..."
-	@sass --style compressed pkg/website/static/sass/style.scss:pkg/website/assets/css/style.css
+	@sass --style compressed pkg/website/static/sass/style.scss:pkg/website/static/css/style.css
 
 run: 
 	@echo "Running application..."
