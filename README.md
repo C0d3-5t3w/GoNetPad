@@ -4,7 +4,7 @@
 
 * Serves the websocket on port 8081 and the html server on port 8080.
   
-* Basicly it a chalkboard.
+* Basicly it's a whiteboard.
 
 # If you want to give me a tip i accept monero:
 

@@ -7,11 +7,11 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-var InvertedTheme = &invertedTheme{}
+var BaseTheme = &baseTheme{}
 
-type invertedTheme struct{}
+type baseTheme struct{}
 
-func (i *invertedTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+func (i *baseTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
 	case theme.ColorNameBackground:
 		return color.Black
@@ -27,14 +27,14 @@ func (i *invertedTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVarian
 	return theme.DefaultTheme().Color(name, variant)
 }
 
-func (i *invertedTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+func (i *baseTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	return theme.DefaultTheme().Icon(name)
 }
 
-func (i *invertedTheme) Size(name fyne.ThemeSizeName) float32 {
+func (i *baseTheme) Size(name fyne.ThemeSizeName) float32 {
 	return theme.DefaultTheme().Size(name)
 }
 
-func (i *invertedTheme) Font(style fyne.TextStyle) fyne.Resource {
+func (i *baseTheme) Font(style fyne.TextStyle) fyne.Resource {
 	return theme.DefaultTheme().Font(style)
 }

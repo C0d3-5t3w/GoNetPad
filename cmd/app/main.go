@@ -16,10 +16,10 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/c0d3-5t3w/GoNetPad/internal/capture"
 	"github.com/c0d3-5t3w/GoNetPad/internal/config"
-	"github.com/c0d3-5t3w/GoNetPad/internal/helpers"
 	"github.com/c0d3-5t3w/GoNetPad/internal/locale"
 	"github.com/c0d3-5t3w/GoNetPad/internal/logger"
 	"github.com/c0d3-5t3w/GoNetPad/internal/themes"
+	helpers "github.com/c0d3-5t3w/GoNetPad/internal/tools"
 	"github.com/gorilla/websocket"
 )
 
@@ -59,9 +59,9 @@ func main() {
 		logger.ErrorLogger.Printf("Failed to configure locale: %v\n", err)
 	}
 
-	a.Settings().SetTheme(themes.InvertedTheme)
+	a.Settings().SetTheme(themes.BaseTheme)
 
-	w := a.NewWindow("5T3Ws Custom Text Editor")
+	w := a.NewWindow("GoNetPad")
 
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -283,8 +283,8 @@ func main() {
 			fyne.NewMenuItem("Find", func() { findText() }),
 		),
 		fyne.NewMenu("Themes",
-			fyne.NewMenuItem("Inverted Theme", func() {
-				a.Settings().SetTheme(themes.InvertedTheme)
+			fyne.NewMenuItem("Base Theme", func() {
+				a.Settings().SetTheme(themes.BaseTheme)
 			}),
 		),
 	)
@@ -345,7 +345,7 @@ func handleWebSocketConnections() {
 
 func serveIndexHTML() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.FileServer(http.Dir("website")).ServeHTTP(w, r)
+		http.FileServer(http.Dir("pkg/website")).ServeHTTP(w, r)
 	})
 }
 

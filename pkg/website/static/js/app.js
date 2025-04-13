@@ -1,17 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize highlight.js
     hljs.highlightAll();
     
     const textArea = document.getElementById("textArea");
     
-    // Mobile-specific adjustments
     if (window.innerWidth <= 768) {
         textArea.style.width = "100%";
         textArea.style.height = "calc(100vh - 20px)";
         textArea.style.fontSize = "16px";
     }
 
-    // WebSocket connection
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.host;
     const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
@@ -21,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             if (typeof event.data === 'string') {
                 if (event.data.startsWith('iVBOR')) {
-                    // Handle base64 image data
                     return;
                 }
                 
@@ -30,10 +26,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 
-                // Update text area with received text
                 textArea.value = event.data;
                 
-                // If output div exists, add highlighted code
                 if (outputDiv) {
                     const codeBlock = document.createElement('pre');
                     const code = document.createElement('code');

@@ -36,6 +36,7 @@ clean:
 	@rm -f $(MAIN_BINARY).app
 
 deps:
+	@echo "Installing dependencies..."
 	@go mod tidy
 	@go mod download
 	@go mod vendor
