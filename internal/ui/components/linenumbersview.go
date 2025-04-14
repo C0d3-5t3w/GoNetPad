@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -13,21 +14,23 @@ import (
 
 type LineNumbersView struct {
 	widget.BaseWidget
-	container   *fyne.Container
-	lineNumbers []string
-	currentLine int
-	background  *canvas.Rectangle
-	labels      []*canvas.Text
-	visible     bool
+	container    *fyne.Container
+	lineNumbers  []string
+	currentLine  int
+	background   *canvas.Rectangle
+	labels       []*canvas.Text
+	visible      bool
+	VisibleState bool
 }
 
 func NewLineNumbersView() *LineNumbersView {
 	ln := &LineNumbersView{
-		lineNumbers: []string{"1"},
-		currentLine: 0,
-		background:  canvas.NewRectangle(color.NRGBA{R: 30, G: 30, B: 30, A: 255}),
-		visible:     true,
-		labels:      make([]*canvas.Text, 0),
+		lineNumbers:  []string{"1"},
+		currentLine:  0,
+		background:   canvas.NewRectangle(color.NRGBA{R: 30, G: 30, B: 30, A: 255}),
+		visible:      true,
+		labels:       make([]*canvas.Text, 0),
+		VisibleState: true,
 	}
 
 	ln.updateDisplay()
@@ -56,12 +59,18 @@ func (ln *LineNumbersView) SetCurrentLine(line int) {
 
 func (ln *LineNumbersView) Hide() {
 	ln.visible = false
-	ln.Refresh()
+	ln.VisibleState = false
+	ln.BaseWidget.Refresh() // changed from ln.Refresh()
 }
 
 func (ln *LineNumbersView) Show() {
 	ln.visible = true
-	ln.Refresh()
+	ln.VisibleState = true
+	ln.BaseWidget.Refresh() // changed from ln.Refresh()
+}
+
+func (ln *LineNumbersView) Visible() bool {
+	return ln.VisibleState
 }
 
 func (ln *LineNumbersView) MinSize() fyne.Size {
@@ -89,7 +98,7 @@ func (ln *LineNumbersView) updateDisplay() {
 	}
 
 	objects := []fyne.CanvasObject{ln.background}
-	vbox := container.NewVBox()
+	labels := []fyne.CanvasObject{}
 
 	ln.labels = make([]*canvas.Text, len(ln.lineNumbers))
 
@@ -104,12 +113,25 @@ func (ln *LineNumbersView) updateDisplay() {
 		}
 
 		ln.labels[i] = label
-		vbox.Add(label)
+		labels = append(labels, label)
 	}
 
+	vbox := container.NewVBox(labels...)
 	objects = append(objects, vbox)
 	ln.container = container.NewStack(objects...) // Ensure container is initialized
-	ln.Refresh()
+	ln.BaseWidget.Refresh()                       // changed from ln.Refresh()
+}
+
+// Fix the implementation of UpdateLineNumbers
+func (ln *LineNumbersView) UpdateLineNumbers(text string) {
+	if text == "" {
+		ln.SetLineCount(1)
+		return
+	}
+
+	lines := strings.Split(text, "\n")
+	lineCount := len(lines)
+	ln.SetLineCount(lineCount)
 }
 
 func (ln *LineNumbersView) ExtendBaseWidget(w fyne.Widget) {
@@ -144,8 +166,4 @@ func (ln *LineNumbersView) Resize(size fyne.Size) {
 	if ln.container != nil {
 		ln.container.Resize(size)
 	}
-}
-
-func (ln *LineNumbersView) Visible() bool {
-	return ln.visible
 }

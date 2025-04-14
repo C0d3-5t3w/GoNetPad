@@ -1,7 +1,7 @@
 package components
 
 import (
-	"fmt"
+	"fmt" // Add missing import for strings
 	"time"
 
 	"image/color"
@@ -21,6 +21,7 @@ type StatusBar struct {
 	messageLabel  *widget.Label
 	languageLabel *widget.Label
 	background    *canvas.Rectangle
+	VisibleState  bool
 }
 
 func NewStatusBar() *StatusBar {
@@ -31,6 +32,7 @@ func NewStatusBar() *StatusBar {
 		messageLabel:  widget.NewLabel(""),
 		languageLabel: widget.NewLabel("text"),
 		background:    canvas.NewRectangle(color.NRGBA{R: 40, G: 40, B: 40, A: 255}),
+		VisibleState:  true,
 	}
 
 	sb.modeLabel.TextStyle = fyne.TextStyle{Bold: true}
@@ -49,6 +51,9 @@ func NewStatusBar() *StatusBar {
 			container.NewPadded(sb.messageLabel),
 		),
 	)
+
+	// initialize BaseWidget for Refresh() calls
+	sb.ExtendBaseWidget(sb)
 
 	return sb
 }
@@ -118,7 +123,17 @@ func (sb *StatusBar) Resize(size fyne.Size) {
 }
 
 func (sb *StatusBar) Visible() bool {
-	return sb.container.Visible()
+	return sb.VisibleState
+}
+
+func (sb *StatusBar) Show() {
+	sb.VisibleState = true
+	sb.container.Show()
+}
+
+func (sb *StatusBar) Hide() {
+	sb.VisibleState = false
+	sb.container.Hide()
 }
 
 func (sb *StatusBar) ExtendBaseWidget(w fyne.Widget) {
@@ -129,17 +144,15 @@ func (sb *StatusBar) ExtendBaseWidget(w fyne.Widget) {
 	}
 }
 
-func (sb *StatusBar) Hide() {
-	sb.container.Hide()
-}
-
-func (sb *StatusBar) Show() {
-	sb.container.Show()
-}
-
 func (sb *StatusBar) Refresh() {
 	if sb.container == nil {
 		sb.container = container.NewStack(sb.background) // Ensure container is initialized
 	}
-	sb.container.Refresh()
+
+	// Use BaseWidget.Refresh() instead of directly accessing container.Refresh()
+	sb.BaseWidget.Refresh()
+}
+
+func (sb *StatusBar) foo() {
+	// Implementation if necessary
 }

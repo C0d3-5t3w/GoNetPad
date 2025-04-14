@@ -64,6 +64,10 @@ func main() {
 	editor := ui.NewEditor(w)
 	var currentText string
 
+	// Create a text edit helper for accessing the underlying text widget
+	var entryWidget *widget.Entry
+	var textEditHelper *ui.TextEditHelper
+
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		for range ticker.C {
@@ -175,34 +179,60 @@ func handleBroadcastMessages() {
 
 func splitHorizontally(editor *ui.Editor) {
 	if editor.CurrentView != nil {
-		// Create a new vertical split (stacks content top to bottom)
-		newSplit := container.NewVSplit(
-			editor.CurrentView.Leading,
-			editor.CurrentView.Trailing,
-		)
-		newSplit.Offset = editor.CurrentView.Offset
-		editor.CurrentView = newSplit
-		editor.Window.SetContent(editor.CurrentView)
+		// Type assertion is needed to work with Split properties
+		if split, ok := editor.CurrentView.(*container.Split); ok {
+			newSplit := container.NewVSplit(split.Leading, split.Trailing)
+			editor.CurrentView = newSplit
+			editor.Window.SetContent(editor.CurrentView)
+		} else {
+			// Create a new split with duplicate content
+			entryTextArea := widget.NewMultiLineEntry()
+			entryTextArea.SetText(editor.TextArea.Text)
+			newEntryTextArea := widget.NewMultiLineEntry()
+			newEntryTextArea.SetText(editor.TextArea.Text)
+			newSplit := container.NewVSplit(
+				container.NewVBox(entryTextArea),
+				container.NewVBox(newEntryTextArea),
+			)
+			editor.CurrentView = newSplit
+			editor.Window.SetContent(editor.CurrentView)
+		}
+	} else {
+		// Handle case when CurrentView is nil
+		logger.InfoLogger.Println("Cannot split: no current view available")
 	}
 	logger.InfoLogger.Println("Split horizontally action triggered")
 }
 
 func splitVertically(editor *ui.Editor) {
 	if editor.CurrentView != nil {
-		// Create a new horizontal split (stacks content side by side)
-		newSplit := container.NewHSplit(
-			editor.CurrentView.Leading,
-			editor.CurrentView.Trailing,
-		)
-		newSplit.Offset = editor.CurrentView.Offset
-		editor.CurrentView = newSplit
-		editor.Window.SetContent(editor.CurrentView)
+		// Type assertion is needed to work with Split properties
+		if split, ok := editor.CurrentView.(*container.Split); ok {
+			newSplit := container.NewHSplit(split.Leading, split.Trailing)
+			editor.CurrentView = newSplit
+			editor.Window.SetContent(editor.CurrentView)
+		} else {
+			// Create a new split with duplicate content
+			entryTextArea := widget.NewMultiLineEntry()
+			entryTextArea.SetText(editor.TextArea.Text)
+			newEntryTextArea := widget.NewMultiLineEntry()
+			newEntryTextArea.SetText(editor.TextArea.Text)
+			newSplit := container.NewHSplit(
+				container.NewVBox(entryTextArea),
+				container.NewVBox(newEntryTextArea),
+			)
+			editor.CurrentView = newSplit
+			editor.Window.SetContent(editor.CurrentView)
+		}
+	} else {
+		// Handle case when CurrentView is nil
+		logger.InfoLogger.Println("Cannot split: no current view available")
 	}
 	logger.InfoLogger.Println("Split vertically action triggered")
 }
 
 func toggleLineNumbers(editor *ui.Editor) {
-	if editor.LineNumbers.Visible() {
+	if editor.LineNumbers.Visible {
 		editor.LineNumbers.Hide()
 	} else {
 		editor.LineNumbers.Show()
@@ -220,25 +250,26 @@ func toggleStatusBar(editor *ui.Editor) {
 }
 
 func cut(editor *ui.Editor) {
-	editor.Window.Clipboard().SetContent(editor.TextArea.SelectedText())
-	editor.TextArea.SetText(strings.Replace(editor.TextArea.Text, editor.TextArea.SelectedText(), "", 1))
+	selectedText := editor.GetSelectedText()
+	editor.Window.Clipboard().SetContent(selectedText)
+	editor.SetText(strings.Replace(editor.GetText(), selectedText, "", 1))
 	logger.InfoLogger.Println("Cut action triggered")
 }
 
 func copy(editor *ui.Editor) {
-	editor.Window.Clipboard().SetContent(editor.TextArea.SelectedText())
+	editor.Window.Clipboard().SetContent(editor.GetSelectedText())
 	logger.InfoLogger.Println("Copy action triggered")
 }
 
 func paste(editor *ui.Editor) {
 	content := editor.Window.Clipboard().Content()
 	if content != "" {
-		if editor.TextArea.SelectedText() != "" {
-			editor.TextArea.SetText(strings.Replace(editor.TextArea.Text, editor.TextArea.SelectedText(), content, 1))
+		if editor.GetSelectedText() != "" {
+			editor.SetText(strings.Replace(editor.GetText(), editor.GetSelectedText(), content, 1))
 		} else {
-			curPos := editor.TextArea.CursorRow*len(editor.TextArea.Text) + editor.TextArea.CursorColumn
-			newText := editor.TextArea.Text[:curPos] + content + editor.TextArea.Text[curPos:]
-			editor.TextArea.SetText(newText)
+			curPos := editor.TextArea.CursorRow*len(editor.GetText()) + editor.TextArea.CursorColumn
+			newText := editor.GetText()[:curPos] + content + editor.GetText()[curPos:]
+			editor.SetText(newText)
 		}
 	}
 	logger.InfoLogger.Println("Paste action triggered")
@@ -345,8 +376,8 @@ func saveFileAs(editor *ui.Editor, w fyne.Window) {
 			return
 		}
 
-		editor.SetFilePath(writer.URI().Path())
 		editor.StatusBar.ShowTemporaryMessage("File saved")
+		editor.SetFilePath(writer.URI().Path())
 	}, w)
 	fd.Show()
 }
