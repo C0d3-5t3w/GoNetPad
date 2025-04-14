@@ -10,7 +10,6 @@ import (
 func getSystemLocale() (string, error) {
 	tag, err := locale.GetLocale()
 	if err != nil {
-		// Fallback to the previous implementation
 		return fallbackGetSystemLocale()
 	}
 

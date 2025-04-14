@@ -49,26 +49,26 @@ func (ln *LineNumbersView) SetLineCount(count int) {
 		ln.lineNumbers[i] = strconv.Itoa(i + 1)
 	}
 
-	ln.updateDisplay()      // Update internal state
-	ln.BaseWidget.Refresh() // Then trigger a single refresh
+	ln.updateDisplay()
+	ln.BaseWidget.Refresh()
 }
 
 func (ln *LineNumbersView) SetCurrentLine(line int) {
 	ln.currentLine = line
 	ln.updateDisplay()
-	ln.BaseWidget.Refresh() // Trigger a single refresh
+	ln.BaseWidget.Refresh()
 }
 
 func (ln *LineNumbersView) Hide() {
 	ln.visible = false
 	ln.VisibleState = false
-	ln.BaseWidget.Refresh() // This is fine since it's not in updateDisplay
+	ln.BaseWidget.Refresh()
 }
 
 func (ln *LineNumbersView) Show() {
 	ln.visible = true
 	ln.VisibleState = true
-	ln.BaseWidget.Refresh() // This is fine since it's not in updateDisplay
+	ln.BaseWidget.Refresh()
 }
 
 func (ln *LineNumbersView) Visible() bool {
@@ -87,7 +87,7 @@ func (ln *LineNumbersView) MinSize() fyne.Size {
 }
 
 func (ln *LineNumbersView) CreateRenderer() fyne.WidgetRenderer {
-	ln.updateDisplay() // Only update internal state, don't trigger refresh
+	ln.updateDisplay()
 	return widget.NewSimpleRenderer(ln.container)
 }
 

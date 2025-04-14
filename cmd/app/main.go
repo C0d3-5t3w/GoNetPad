@@ -126,7 +126,6 @@ func main() {
 	w.ShowAndRun()
 }
 
-// Handler for WebSocket connections
 func handleWebSocketConnection(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -150,12 +149,10 @@ func handleWebSocketConnection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Handle serving the index.html file
 func serveIndexHTML(w http.ResponseWriter, r *http.Request) {
 	http.FileServer(http.Dir("pkg/website")).ServeHTTP(w, r)
 }
 
-// Handle broadcasting messages to all connected clients
 func handleBroadcastMessages() {
 	for {
 		msg := <-broadcast
@@ -172,13 +169,13 @@ func handleBroadcastMessages() {
 
 func splitHorizontally(editor *ui.Editor) {
 	if editor.CurrentView != nil {
-		// Type assertion is needed to work with Split properties
+
 		if split, ok := editor.CurrentView.(*container.Split); ok {
 			newSplit := container.NewVSplit(split.Leading, split.Trailing)
 			editor.CurrentView = newSplit
 			editor.Window.SetContent(editor.CurrentView)
 		} else {
-			// Create a new split with duplicate content
+
 			entryTextArea := widget.NewMultiLineEntry()
 			entryTextArea.SetText(editor.TextArea.Text)
 			newEntryTextArea := widget.NewMultiLineEntry()
@@ -191,7 +188,7 @@ func splitHorizontally(editor *ui.Editor) {
 			editor.Window.SetContent(editor.CurrentView)
 		}
 	} else {
-		// Handle case when CurrentView is nil
+
 		logger.InfoLogger.Println("Cannot split: no current view available")
 	}
 	logger.InfoLogger.Println("Split horizontally action triggered")
@@ -199,13 +196,13 @@ func splitHorizontally(editor *ui.Editor) {
 
 func splitVertically(editor *ui.Editor) {
 	if editor.CurrentView != nil {
-		// Type assertion is needed to work with Split properties
+
 		if split, ok := editor.CurrentView.(*container.Split); ok {
 			newSplit := container.NewHSplit(split.Leading, split.Trailing)
 			editor.CurrentView = newSplit
 			editor.Window.SetContent(editor.CurrentView)
 		} else {
-			// Create a new split with duplicate content
+
 			entryTextArea := widget.NewMultiLineEntry()
 			entryTextArea.SetText(editor.TextArea.Text)
 			newEntryTextArea := widget.NewMultiLineEntry()
@@ -218,7 +215,7 @@ func splitVertically(editor *ui.Editor) {
 			editor.Window.SetContent(editor.CurrentView)
 		}
 	} else {
-		// Handle case when CurrentView is nil
+
 		logger.InfoLogger.Println("Cannot split: no current view available")
 	}
 	logger.InfoLogger.Println("Split vertically action triggered")
@@ -274,11 +271,9 @@ func find(editor *ui.Editor, w fyne.Window) {
 			return
 		}
 
-		// Basic find implementation
 		index := strings.Index(editor.TextArea.Text, text)
 		if index >= 0 {
-			// Here we would ideally select the text, but fyne.Entry doesn't provide
-			// a direct way to set selection programmatically
+
 			editor.StatusBar.ShowTemporaryMessage(fmt.Sprintf("Found at position %d", index))
 		} else {
 			editor.StatusBar.ShowTemporaryMessage("Text not found")

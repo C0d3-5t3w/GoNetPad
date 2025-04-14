@@ -22,7 +22,6 @@ const (
 	CommandMode
 )
 
-// Editor represents the main editor component
 type Editor struct {
 	Window      fyne.Window
 	TextArea    *TextArea
@@ -31,55 +30,46 @@ type Editor struct {
 	LineNumbers *LineNumbers
 	StatusBar   *StatusBar
 	CurrentMode EditorMode
-	CurrentView fyne.CanvasObject // Changed to interface type instead of concrete type
+	CurrentView fyne.CanvasObject
 }
 
-// SetText sets the text content of the editor
 func (e *Editor) SetText(text string) {
 	e.TextArea.Text = text
 }
 
-// GetText returns the current text content of the editor
 func (e *Editor) GetText() string {
 	return e.TextArea.Text
 }
 
-// GetSelectedText returns the currently selected text (stub implementation)
 func (e *Editor) GetSelectedText() string {
-	// In a real implementation, this would return the selected text
-	// For now, return an empty string as placeholder
+
 	return ""
 }
 
-// TextArea represents the text editing component
 type TextArea struct {
 	Text         string
 	CursorRow    int
 	CursorColumn int
 }
 
-// SetText sets the text content in the text area
 func (t *TextArea) SetText(text string) {
 	t.Text = text
 }
 
-// History maintains a list of text snapshots for undo/redo
 type History struct {
 	Snapshots []string
 	Position  int
 }
 
-// Add adds a new text snapshot to the history
 func (h *History) Add(text string) {
-	// Add the current text to history snapshots
+
 	if len(h.Snapshots) > 0 && h.Snapshots[len(h.Snapshots)-1] == text {
-		return // Skip duplicate entries
+		return
 	}
 	h.Snapshots = append(h.Snapshots, text)
 	h.Position = len(h.Snapshots) - 1
 }
 
-// Undo reverts to the previous snapshot in history
 func (h *History) Undo() (string, bool) {
 	if h.Position <= 0 {
 		return "", false
@@ -88,7 +78,6 @@ func (h *History) Undo() (string, bool) {
 	return h.Snapshots[h.Position], true
 }
 
-// Redo advances to the next snapshot in history
 func (h *History) Redo() (string, bool) {
 	if h.Position >= len(h.Snapshots)-1 {
 		return "", false
@@ -97,45 +86,37 @@ func (h *History) Redo() (string, bool) {
 	return h.Snapshots[h.Position], true
 }
 
-// LineNumbers represents the line numbering component
 type LineNumbers struct {
 	Visible bool
 }
 
-// Show makes the line numbers visible
 func (ln *LineNumbers) Show() {
 	ln.Visible = true
 }
 
-// Hide makes the line numbers invisible
 func (ln *LineNumbers) Hide() {
 	ln.Visible = false
 }
 
-// StatusBar represents the status display component
 type StatusBar struct {
 	Message string
 }
 
-// ShowTemporaryMessage displays a temporary message in the status bar
 func (sb *StatusBar) ShowTemporaryMessage(msg string) {
 	sb.Message = msg
-	// Additional logic for temporary display could be added here
+
 }
 
-// Visible returns whether the status bar is visible
 func (sb *StatusBar) Visible() bool {
-	return true // Default implementation always returns true
+	return true
 }
 
-// Show makes the status bar visible
 func (sb *StatusBar) Show() {
-	// Implementation for showing the status bar
+
 }
 
-// Hide makes the status bar invisible
 func (sb *StatusBar) Hide() {
-	// Implementation for hiding the status bar
+
 }
 
 func NewEditor(window fyne.Window) *Editor {
@@ -152,14 +133,12 @@ func NewEditor(window fyne.Window) *Editor {
 	editor.LineNumbers = &LineNumbers{}
 	editor.StatusBar = &StatusBar{}
 
-	// Create Fyne UI components
 	lineNumbersView := components.NewLineNumbersView()
 	statusBar := components.NewStatusBar()
 	commandInput := widget.NewEntry()
 	commandInput.SetPlaceHolder(":")
 	commandInput.Hide()
 
-	// Setup text area event handling
 	fyneTextArea.OnChanged = func(text string) {
 		editor.TextArea.Text = text
 		editor.updateLineNumbers(text)
@@ -171,7 +150,6 @@ func NewEditor(window fyne.Window) *Editor {
 
 	tabContainer := container.NewDocTabs()
 
-	// Store the Fyne UI components
 	setupUI(editor, fyneTextArea, lineNumbersView, statusBar, commandInput, tabContainer)
 	setupKeyBindings(editor, fyneTextArea, commandInput, statusBar)
 
@@ -317,9 +295,9 @@ func handleFormatCode(e *Editor, textArea *widget.Entry, statusBar *components.S
 
 func (e *Editor) updateLineNumbers(text string) {
 	lines := strings.Split(text, "\n")
-	_ = lines                   // Use the variable to avoid unused error
-	e.TextArea.CursorRow = 0    // Default value
-	e.TextArea.CursorColumn = 0 // Default value
+	_ = lines
+	e.TextArea.CursorRow = 0
+	e.TextArea.CursorColumn = 0
 }
 
 func (e *Editor) SetFilePath(path string) {
@@ -327,7 +305,7 @@ func (e *Editor) SetFilePath(path string) {
 }
 
 func (e *Editor) AddNewTab(name string) {
-	// Implementation of AddNewTab
+
 }
 
 func saveFile(e *Editor) {
@@ -344,16 +322,15 @@ func updateSyntaxHighlighting(e *Editor, text string, language string, tabContai
 
 	scrollContainer := container.NewScroll(coloredCodeView)
 
-	// Check if CurrentView is nil before attempting to use it
 	if e.CurrentView == nil {
-		// Create a new split view with the tabContainer and the scrollContainer
+
 		e.CurrentView = container.NewBorder(nil, nil, nil, nil, tabContainer)
 		e.Window.SetContent(e.CurrentView)
 	} else if split, ok := e.CurrentView.(*container.Split); ok {
 		split.Trailing = scrollContainer
 		split.Refresh()
 	} else {
-		// If CurrentView exists but is not a Split, replace it
+
 		e.CurrentView = container.NewBorder(nil, nil, nil, nil, tabContainer)
 		e.Window.SetContent(e.CurrentView)
 	}

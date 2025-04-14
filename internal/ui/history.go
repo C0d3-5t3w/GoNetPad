@@ -13,12 +13,10 @@ func NewTextHistory() *TextHistory {
 }
 
 func (h *TextHistory) Add(text string) {
-	// If we're not at the end of the history, truncate
 	if h.current < len(h.entries)-1 {
 		h.entries = h.entries[:h.current+1]
 	}
 
-	// Don't add if identical to current
 	if len(h.entries) > 0 && h.entries[h.current] == text {
 		return
 	}

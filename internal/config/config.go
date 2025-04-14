@@ -31,7 +31,6 @@ func LoadConfig(configPath string) {
 }
 
 func init() {
-	// Default config path
 	configPath := "pkg/config/config.yaml"
 	LoadConfig(configPath)
 }

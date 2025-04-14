@@ -1,7 +1,7 @@
 package components
 
 import (
-	"fmt" // Add missing import for strings
+	"fmt"
 	"time"
 
 	"image/color"
@@ -52,7 +52,6 @@ func NewStatusBar() *StatusBar {
 		),
 	)
 
-	// initialize BaseWidget for Refresh() calls
 	sb.ExtendBaseWidget(sb)
 
 	return sb
@@ -146,13 +145,12 @@ func (sb *StatusBar) ExtendBaseWidget(w fyne.Widget) {
 
 func (sb *StatusBar) Refresh() {
 	if sb.container == nil {
-		sb.container = container.NewStack(sb.background) // Ensure container is initialized
+		sb.container = container.NewStack(sb.background)
 	}
 
-	// Use BaseWidget.Refresh() instead of directly accessing container.Refresh()
 	sb.BaseWidget.Refresh()
 }
 
 func (sb *StatusBar) foo() {
-	// Implementation if necessary
+
 }
