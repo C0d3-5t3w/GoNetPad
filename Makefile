@@ -12,13 +12,14 @@ LDFLAGS = -w -s
 help:
 	@echo "Makefile for $(MAIN_BINARY)"
 	@echo "Usage:"
-	@echo "  make all-win    - Build and run the application for windows"
-	@echo "  make all-darwin - Build and run the application for macOs"
-	@echo "  make build      - Build the application"
-	@echo "  make clean      - Clean up build artifacts"
-	@echo "  make run        - Run the application"
-	@echo "  make deps       - Install dependencies"
-	@echo "  make help       - Show this help message"
+	@echo "  make all-win      - Build and run the application for windows"
+	@echo "  make all-darwin   - Build and run the application for macOs"
+	@echo "  make build-win    - Build the application for windows"
+	@echo "  make build-darwin - Build the application for macOs"
+	@echo "  make clean        - Clean up build artifacts"
+	@echo "  make run          - Run the application"
+	@echo "  make deps         - Install dependencies"
+	@echo "  make help         - Show this help message"
 
 all-win: clean deps ts sass build-win run
 
