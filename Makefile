@@ -1,4 +1,4 @@
-.PHONY: help all build clean run
+.PHONY: help all-win all-darwin build-win build-darwin clean run
 
 MAIN_BINARY := GoNetPad
 BUILD_DIR := GoNetPad

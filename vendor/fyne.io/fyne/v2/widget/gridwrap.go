@@ -3,12 +3,13 @@ package widget
 import (
 	"fmt"
 	"math"
-	"sync"
+	"sort"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/internal/async"
 	"fyne.io/fyne/v2/internal/widget"
 	"fyne.io/fyne/v2/theme"
 )
@@ -30,11 +31,26 @@ type GridWrapItemID = int
 type GridWrap struct {
 	BaseWidget
 
-	Length       func() int                                      `json:"-"`
-	CreateItem   func() fyne.CanvasObject                        `json:"-"`
-	UpdateItem   func(id GridWrapItemID, item fyne.CanvasObject) `json:"-"`
-	OnSelected   func(id GridWrapItemID)                         `json:"-"`
-	OnUnselected func(id GridWrapItemID)                         `json:"-"`
+	// Length is a callback for returning the number of items in the GridWrap.
+	Length func() int `json:"-"`
+
+	// CreateItem is a callback invoked to create a new widget to render
+	// an item in the GridWrap.
+	CreateItem func() fyne.CanvasObject `json:"-"`
+
+	// UpdateItem is a callback invoked to update a GridWrap item widget
+	// to display a new item in the list. The UpdateItem callback should
+	// only update the given item, it should not invoke APIs that would
+	// change other properties of the GridWrap itself.
+	UpdateItem func(id GridWrapItemID, item fyne.CanvasObject) `json:"-"`
+
+	// OnSelected is a callback to be notified when a given item
+	// in the GridWrap has been selected.
+	OnSelected func(id GridWrapItemID) `json:"-"`
+
+	// OnSelected is a callback to be notified when a given item
+	// in the GridWrap has been unselected.
+	OnUnselected func(id GridWrapItemID) `json:"-"`
 
 	currentFocus  ListItemID
 	focused       bool
@@ -43,6 +59,7 @@ type GridWrap struct {
 	itemMin       fyne.Size
 	offsetY       float32
 	offsetUpdated func(fyne.Position)
+	colCountCache int
 }
 
 // NewGridWrap creates and returns a GridWrap widget for displaying items in
@@ -80,7 +97,9 @@ func (l *GridWrap) CreateRenderer() fyne.WidgetRenderer {
 	l.ExtendBaseWidget(l)
 
 	if f := l.CreateItem; f != nil && l.itemMin.IsZero() {
-		l.itemMin = f().MinSize()
+		item := createItemAndApplyThemeScope(f, l)
+
+		l.itemMin = item.MinSize()
 	}
 
 	layout := &fyne.Container{Layout: newGridWrapLayout(l)}
@@ -95,7 +114,6 @@ func (l *GridWrap) CreateRenderer() fyne.WidgetRenderer {
 // Implements: fyne.Focusable
 func (l *GridWrap) FocusGained() {
 	l.focused = true
-	l.scrollTo(l.currentFocus)
 	l.RefreshItem(l.currentFocus)
 }
 
@@ -110,7 +128,6 @@ func (l *GridWrap) FocusLost() {
 // MinSize returns the size that this widget should not shrink below.
 func (l *GridWrap) MinSize() fyne.Size {
 	l.ExtendBaseWidget(l)
-
 	return l.BaseWidget.MinSize()
 }
 
@@ -118,12 +135,14 @@ func (l *GridWrap) scrollTo(id GridWrapItemID) {
 	if l.scroller == nil {
 		return
 	}
-	row := math.Floor(float64(id) / float64(l.getColCount()))
-	y := float32(row)*l.itemMin.Height + float32(row)*theme.Padding()
+
+	pad := l.Theme().Size(theme.SizeNamePadding)
+	row := math.Floor(float64(id) / float64(l.ColumnCount()))
+	y := float32(row)*l.itemMin.Height + float32(row)*pad
 	if y < l.scroller.Offset.Y {
 		l.scroller.Offset.Y = y
-	} else if y+l.itemMin.Height > l.scroller.Offset.Y+l.scroller.Size().Height {
-		l.scroller.Offset.Y = y + l.itemMin.Height - l.scroller.Size().Height
+	} else if size := l.scroller.Size(); y+l.itemMin.Height > l.scroller.Offset.Y+size.Height {
+		l.scroller.Offset.Y = y + l.itemMin.Height - size.Height
 	}
 	l.offsetUpdated(l.scroller.Offset)
 }
@@ -137,17 +156,29 @@ func (l *GridWrap) RefreshItem(id GridWrapItemID) {
 	}
 	l.BaseWidget.Refresh()
 	lo := l.scroller.Content.(*fyne.Container).Layout.(*gridWrapLayout)
-	visible := lo.visible
-	if item, ok := visible[id]; ok {
+	item, ok := lo.searchVisible(lo.visible, id)
+	if ok {
 		lo.setupGridItem(item, id, l.focused && l.currentFocus == id)
 	}
 }
 
 // Resize is called when this GridWrap should change size. We refresh to ensure invisible items are drawn.
 func (l *GridWrap) Resize(s fyne.Size) {
+	oldColCount := l.ColumnCount()
+	oldHeight := l.size.Height
+	l.colCountCache = 0
 	l.BaseWidget.Resize(s)
-	l.offsetUpdated(l.scroller.Offset)
-	l.scroller.Content.(*fyne.Container).Layout.(*gridWrapLayout).updateGrid(true)
+	newColCount := l.ColumnCount()
+
+	if oldColCount == newColCount && oldHeight == s.Height {
+		// no content update needed if resizing only horizontally and col count is unchanged
+		return
+	}
+
+	if l.scroller != nil {
+		l.offsetUpdated(l.scroller.Offset)
+		l.scroller.Content.(*fyne.Container).Layout.(*gridWrapLayout).updateGrid(true)
+	}
 }
 
 // Select adds the item identified by the given ID to the selection.
@@ -191,26 +222,32 @@ func (l *GridWrap) ScrollTo(id GridWrapItemID) {
 
 // ScrollToBottom scrolls to the end of the list
 func (l *GridWrap) ScrollToBottom() {
-	length := 0
-	if f := l.Length; f != nil {
-		length = f()
-	}
-	if length > 0 {
-		length--
-	}
-	l.scrollTo(GridWrapItemID(length))
-	l.Refresh()
+	l.scroller.ScrollToBottom()
+	l.offsetUpdated(l.scroller.Offset)
 }
 
 // ScrollToTop scrolls to the start of the list
 func (l *GridWrap) ScrollToTop() {
-	l.scrollTo(0)
-	l.Refresh()
+	l.scroller.ScrollToTop()
+	l.offsetUpdated(l.scroller.Offset)
 }
 
 // ScrollToOffset scrolls the list to the given offset position
 func (l *GridWrap) ScrollToOffset(offset float32) {
-	l.scroller.Offset.Y = offset
+	if l.scroller == nil {
+		return
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	contentHeight := l.contentMinSize().Height
+	if l.Size().Height >= contentHeight {
+		return // content fully visible - no need to scroll
+	}
+	if offset > contentHeight {
+		offset = contentHeight
+	}
+	l.scroller.ScrollToOffset(fyne.NewPos(0, offset))
 	l.offsetUpdated(l.scroller.Offset)
 }
 
@@ -227,7 +264,7 @@ func (l *GridWrap) TypedKey(event *fyne.KeyEvent) {
 			count = f()
 		}
 		l.RefreshItem(l.currentFocus)
-		l.currentFocus += l.getColCount()
+		l.currentFocus += l.ColumnCount()
 		if l.currentFocus >= count-1 {
 			l.currentFocus = count - 1
 		}
@@ -237,7 +274,7 @@ func (l *GridWrap) TypedKey(event *fyne.KeyEvent) {
 		if l.currentFocus <= 0 {
 			return
 		}
-		if l.currentFocus%l.getColCount() == 0 {
+		if l.currentFocus%l.ColumnCount() == 0 {
 			return
 		}
 
@@ -249,7 +286,7 @@ func (l *GridWrap) TypedKey(event *fyne.KeyEvent) {
 		if f := l.Length; f != nil && l.currentFocus >= f()-1 {
 			return
 		}
-		if (l.currentFocus+1)%l.getColCount() == 0 {
+		if (l.currentFocus+1)%l.ColumnCount() == 0 {
 			return
 		}
 
@@ -262,7 +299,7 @@ func (l *GridWrap) TypedKey(event *fyne.KeyEvent) {
 			return
 		}
 		l.RefreshItem(l.currentFocus)
-		l.currentFocus -= l.getColCount()
+		l.currentFocus -= l.ColumnCount()
 		if l.currentFocus < 0 {
 			l.currentFocus = 0
 		}
@@ -312,6 +349,17 @@ func (l *GridWrap) UnselectAll() {
 	}
 }
 
+func (l *GridWrap) contentMinSize() fyne.Size {
+	padding := l.Theme().Size(theme.SizeNamePadding)
+	if l.Length == nil {
+		return fyne.NewSize(0, 0)
+	}
+
+	cols := l.ColumnCount()
+	rows := float32(math.Ceil(float64(l.Length()) / float64(cols)))
+	return fyne.NewSize(l.itemMin.Width, (l.itemMin.Height+padding)*rows-padding)
+}
+
 // Declare conformity with WidgetRenderer interface.
 var _ fyne.WidgetRenderer = (*gridWrapRenderer)(nil)
 
@@ -339,11 +387,13 @@ func (l *gridWrapRenderer) MinSize() fyne.Size {
 
 func (l *gridWrapRenderer) Refresh() {
 	if f := l.list.CreateItem; f != nil {
-		l.list.itemMin = f().MinSize()
+		item := createItemAndApplyThemeScope(f, l.list)
+
+		l.list.itemMin = item.MinSize()
 	}
 	l.Layout(l.list.Size())
 	l.scroller.Refresh()
-	l.layout.Layout.(*gridWrapLayout).updateGrid(true)
+	l.layout.Layout.(*gridWrapLayout).updateGrid(false)
 	canvas.Refresh(l.list)
 }
 
@@ -381,9 +431,11 @@ func newGridWrapItem(child fyne.CanvasObject, tapped func()) *gridWrapItem {
 // CreateRenderer is a private method to Fyne which links this widget to its renderer.
 func (gw *gridWrapItem) CreateRenderer() fyne.WidgetRenderer {
 	gw.ExtendBaseWidget(gw)
+	th := gw.Theme()
+	v := fyne.CurrentApp().Settings().ThemeVariant()
 
-	gw.background = canvas.NewRectangle(theme.HoverColor())
-	gw.background.CornerRadius = theme.SelectionRadiusSize()
+	gw.background = canvas.NewRectangle(th.Color(theme.ColorNameHover, v))
+	gw.background.CornerRadius = th.Size(theme.SizeNameSelectionRadius)
 	gw.background.Hide()
 
 	objects := []fyne.CanvasObject{gw.background, gw.child}
@@ -444,12 +496,15 @@ func (gw *gridWrapItemRenderer) Layout(size fyne.Size) {
 }
 
 func (gw *gridWrapItemRenderer) Refresh() {
-	gw.item.background.CornerRadius = theme.SelectionRadiusSize()
+	th := gw.item.Theme()
+	v := fyne.CurrentApp().Settings().ThemeVariant()
+
+	gw.item.background.CornerRadius = th.Size(theme.SizeNameSelectionRadius)
 	if gw.item.selected {
-		gw.item.background.FillColor = theme.SelectionColor()
+		gw.item.background.FillColor = th.Color(theme.ColorNameSelection, v)
 		gw.item.background.Show()
 	} else if gw.item.hovered {
-		gw.item.background.FillColor = theme.HoverColor()
+		gw.item.background.FillColor = th.Color(theme.ColorNameHover, v)
 		gw.item.background.Show()
 	} else {
 		gw.item.background.Hide()
@@ -461,19 +516,23 @@ func (gw *gridWrapItemRenderer) Refresh() {
 // Declare conformity with Layout interface.
 var _ fyne.Layout = (*gridWrapLayout)(nil)
 
-type gridWrapLayout struct {
-	list     *GridWrap
-	children []fyne.CanvasObject
-
-	itemPool   *syncPool
-	visible    map[GridWrapItemID]*gridWrapItem
-	renderLock sync.Mutex
+type gridItemAndID struct {
+	item *gridWrapItem
+	id   GridWrapItemID
 }
 
-func newGridWrapLayout(list *GridWrap) fyne.Layout {
-	l := &gridWrapLayout{list: list, itemPool: &syncPool{}, visible: make(map[GridWrapItemID]*gridWrapItem)}
-	list.offsetUpdated = l.offsetUpdated
-	return l
+type gridWrapLayout struct {
+	gw *GridWrap
+
+	itemPool   async.Pool[fyne.CanvasObject]
+	visible    []gridItemAndID
+	wasVisible []gridItemAndID
+}
+
+func newGridWrapLayout(gw *GridWrap) fyne.Layout {
+	gwl := &gridWrapLayout{gw: gw}
+	gw.offsetUpdated = gwl.offsetUpdated
+	return gwl
 }
 
 func (l *gridWrapLayout) Layout(_ []fyne.CanvasObject, _ fyne.Size) {
@@ -481,37 +540,33 @@ func (l *gridWrapLayout) Layout(_ []fyne.CanvasObject, _ fyne.Size) {
 }
 
 func (l *gridWrapLayout) MinSize(_ []fyne.CanvasObject) fyne.Size {
-	if lenF := l.list.Length; lenF != nil {
-		cols := l.list.getColCount()
-		rows := float32(math.Ceil(float64(lenF()) / float64(cols)))
-		return fyne.NewSize(l.list.itemMin.Width,
-			(l.list.itemMin.Height+theme.Padding())*rows-theme.Padding())
-	}
-	return fyne.NewSize(0, 0)
+	return l.gw.contentMinSize()
 }
 
 func (l *gridWrapLayout) getItem() *gridWrapItem {
-	item := l.itemPool.Obtain()
+	item := l.itemPool.Get()
 	if item == nil {
-		if f := l.list.CreateItem; f != nil {
-			item = newGridWrapItem(f(), nil)
+		if f := l.gw.CreateItem; f != nil {
+			child := createItemAndApplyThemeScope(f, l.gw)
+
+			item = newGridWrapItem(child, nil)
 		}
 	}
 	return item.(*gridWrapItem)
 }
 
 func (l *gridWrapLayout) offsetUpdated(pos fyne.Position) {
-	if l.list.offsetY == pos.Y {
+	if l.gw.offsetY == pos.Y {
 		return
 	}
-	l.list.offsetY = pos.Y
-	l.updateGrid(false)
+	l.gw.offsetY = pos.Y
+	l.updateGrid(true)
 }
 
 func (l *gridWrapLayout) setupGridItem(li *gridWrapItem, id GridWrapItemID, focus bool) {
 	previousIndicator := li.selected
 	li.selected = false
-	for _, s := range l.list.selected {
+	for _, s := range l.gw.selected {
 		if id == s {
 			li.selected = true
 			break
@@ -524,94 +579,137 @@ func (l *gridWrapLayout) setupGridItem(li *gridWrapItem, id GridWrapItemID, focu
 		li.hovered = false
 		li.Refresh()
 	}
-	if f := l.list.UpdateItem; f != nil {
+	if f := l.gw.UpdateItem; f != nil {
 		f(id, li.child)
 	}
 	li.onTapped = func() {
-		l.list.RefreshItem(l.list.currentFocus)
-		canvas := fyne.CurrentApp().Driver().CanvasForObject(l.list)
-		if canvas != nil {
-			canvas.Focus(l.list)
+		if !fyne.CurrentDevice().IsMobile() {
+			l.gw.RefreshItem(l.gw.currentFocus)
+			canvas := fyne.CurrentApp().Driver().CanvasForObject(l.gw)
+			if canvas != nil {
+				canvas.Focus(l.gw.impl.(fyne.Focusable))
+			}
+
+			l.gw.currentFocus = id
 		}
 
-		l.list.currentFocus = id
-		l.list.Select(id)
+		l.gw.Select(id)
 	}
 }
 
-func (l *GridWrap) getColCount() int {
-	colCount := 1
-	width := l.Size().Width
-	if width > l.itemMin.Width {
-		colCount = int(math.Floor(float64(width+theme.Padding()) / float64(l.itemMin.Width+theme.Padding())))
+// ColumnCount returns the number of columns that are/will be shown
+// in this GridWrap, based on the widget's current width.
+//
+// Since: 2.5
+func (l *GridWrap) ColumnCount() int {
+	if l.colCountCache < 1 {
+		padding := l.Theme().Size(theme.SizeNamePadding)
+		l.colCountCache = 1
+		width := l.Size().Width
+		if width > l.itemMin.Width {
+			l.colCountCache = int(math.Floor(float64(width+padding) / float64(l.itemMin.Width+padding)))
+		}
 	}
-	return colCount
+	return l.colCountCache
 }
 
-func (l *gridWrapLayout) updateGrid(refresh bool) {
+func (l *gridWrapLayout) updateGrid(newOnly bool) {
 	// code here is a mashup of listLayout.updateList and gridWrapLayout.Layout
+	padding := l.gw.Theme().Size(theme.SizeNamePadding)
 
-	l.renderLock.Lock()
 	length := 0
-	if f := l.list.Length; f != nil {
+	if f := l.gw.Length; f != nil {
 		length = f()
 	}
 
-	colCount := l.list.getColCount()
-	visibleRowsCount := int(math.Ceil(float64(l.list.scroller.Size().Height)/float64(l.list.itemMin.Height+theme.Padding()))) + 1
+	colCount := l.gw.ColumnCount()
+	visibleRowsCount := int(math.Ceil(float64(l.gw.scroller.Size().Height)/float64(l.gw.itemMin.Height+padding))) + 1
 
-	offY := l.list.offsetY - float32(math.Mod(float64(l.list.offsetY), float64(l.list.itemMin.Height+theme.Padding())))
-	minRow := int(offY / (l.list.itemMin.Height + theme.Padding()))
+	offY := l.gw.offsetY - float32(math.Mod(float64(l.gw.offsetY), float64(l.gw.itemMin.Height+padding)))
+	minRow := int(offY / (l.gw.itemMin.Height + padding))
 	minItem := GridWrapItemID(minRow * colCount)
 	maxRow := int(math.Min(float64(minRow+visibleRowsCount), math.Ceil(float64(length)/float64(colCount))))
 	maxItem := GridWrapItemID(math.Min(float64(maxRow*colCount), float64(length-1)))
 
-	if l.list.UpdateItem == nil {
+	if l.gw.UpdateItem == nil {
 		fyne.LogError("Missing UpdateCell callback required for GridWrap", nil)
 	}
 
-	wasVisible := l.visible
-	l.visible = make(map[GridWrapItemID]*gridWrapItem)
-	var cells []fyne.CanvasObject
+	// l.wasVisible now represents the currently visible items, while
+	// l.visible will be updated to represent what is visible *after* the update
+	l.wasVisible = append(l.wasVisible, l.visible...)
+	l.visible = l.visible[:0]
+
+	c := l.gw.scroller.Content.(*fyne.Container)
+	oldObjLen := len(c.Objects)
+	c.Objects = c.Objects[:0]
 	y := offY
-	curItem := minItem
-	for row := minRow; row <= maxRow && curItem <= maxItem; row++ {
+	curItemID := minItem
+	for row := minRow; row <= maxRow && curItemID <= maxItem; row++ {
 		x := float32(0)
-		for col := 0; col < colCount && curItem <= maxItem; col++ {
-			c, ok := wasVisible[curItem]
+		for col := 0; col < colCount && curItemID <= maxItem; col++ {
+			item, ok := l.searchVisible(l.wasVisible, curItemID)
 			if !ok {
-				c = l.getItem()
-				if c == nil {
+				item = l.getItem()
+				if item == nil {
 					continue
 				}
-				c.Resize(l.list.itemMin)
+				item.Resize(l.gw.itemMin)
 			}
 
-			c.Move(fyne.NewPos(x, y))
-			if refresh {
-				c.Resize(l.list.itemMin)
+			item.Move(fyne.NewPos(x, y))
+			item.Resize(l.gw.itemMin)
+
+			x += l.gw.itemMin.Width + padding
+			l.visible = append(l.visible, gridItemAndID{item: item, id: curItemID})
+			c.Objects = append(c.Objects, item)
+			curItemID++
+		}
+		y += l.gw.itemMin.Height + padding
+	}
+	l.nilOldSliceData(c.Objects, len(c.Objects), oldObjLen)
+
+	for _, old := range l.wasVisible {
+		if _, ok := l.searchVisible(l.visible, old.id); !ok {
+			l.itemPool.Put(old.item)
+		}
+	}
+
+	if newOnly {
+		for _, obj := range l.visible {
+			if _, ok := l.searchVisible(l.wasVisible, obj.id); !ok {
+				l.setupGridItem(obj.item, obj.id, l.gw.focused && l.gw.currentFocus == obj.id)
 			}
-
-			x += l.list.itemMin.Width + theme.Padding()
-			l.visible[curItem] = c
-			cells = append(cells, c)
-			curItem++
 		}
-		y += l.list.itemMin.Height + theme.Padding()
-	}
-
-	for id, old := range wasVisible {
-		if _, ok := l.visible[id]; !ok {
-			l.itemPool.Release(old)
+	} else {
+		for _, obj := range l.visible {
+			l.setupGridItem(obj.item, obj.id, l.gw.focused && l.gw.currentFocus == obj.id)
 		}
 	}
-	l.children = cells
 
-	objects := l.children
-	l.list.scroller.Content.(*fyne.Container).Objects = objects
-	l.renderLock.Unlock() // user code should not be locked
+	// we don't need wasVisible now until next call to update
+	// nil out all references before truncating slice
+	for i := 0; i < len(l.wasVisible); i++ {
+		l.wasVisible[i].item = nil
+	}
+	l.wasVisible = l.wasVisible[:0]
+}
 
-	for row, obj := range l.visible {
-		l.setupGridItem(obj, row, l.list.focused && l.list.currentFocus == row)
+// invariant: visible is in ascending order of IDs
+func (l *gridWrapLayout) searchVisible(visible []gridItemAndID, id GridWrapItemID) (*gridWrapItem, bool) {
+	ln := len(visible)
+	idx := sort.Search(ln, func(i int) bool { return visible[i].id >= id })
+	if idx < ln && visible[idx].id == id {
+		return visible[idx].item, true
+	}
+	return nil, false
+}
+
+func (l *gridWrapLayout) nilOldSliceData(objs []fyne.CanvasObject, len, oldLen int) {
+	if oldLen > len {
+		objs = objs[:oldLen] // gain view into old data
+		for i := len; i < oldLen; i++ {
+			objs[i] = nil
+		}
 	}
 }

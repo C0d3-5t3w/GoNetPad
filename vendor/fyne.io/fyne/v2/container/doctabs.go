@@ -23,11 +23,11 @@ type DocTabs struct {
 
 	Items []*TabItem
 
-	CreateTab      func() *TabItem
-	CloseIntercept func(*TabItem)
-	OnClosed       func(*TabItem)
-	OnSelected     func(*TabItem)
-	OnUnselected   func(*TabItem)
+	CreateTab      func() *TabItem `json:"-"`
+	CloseIntercept func(*TabItem)  `json:"-"`
+	OnClosed       func(*TabItem)  `json:"-"`
+	OnSelected     func(*TabItem)  `json:"-"`
+	OnUnselected   func(*TabItem)  `json:"-"`
 
 	current         int
 	location        TabLocation
@@ -56,17 +56,22 @@ func (t *DocTabs) Append(item *TabItem) {
 // Implements: fyne.Widget
 func (t *DocTabs) CreateRenderer() fyne.WidgetRenderer {
 	t.ExtendBaseWidget(t)
+	th := t.Theme()
+	v := fyne.CurrentApp().Settings().ThemeVariant()
+
 	r := &docTabsRenderer{
 		baseTabsRenderer: baseTabsRenderer{
 			bar:       &fyne.Container{},
-			divider:   canvas.NewRectangle(theme.ShadowColor()),
-			indicator: canvas.NewRectangle(theme.PrimaryColor()),
+			divider:   canvas.NewRectangle(th.Color(theme.ColorNameShadow, v)),
+			indicator: canvas.NewRectangle(th.Color(theme.ColorNamePrimary, v)),
 		},
 		docTabs:  t,
 		scroller: NewScroll(&fyne.Container{}),
 	}
 	r.action = r.buildAllTabsButton()
 	r.create = r.buildCreateTabsButton()
+	r.tabs = t
+
 	r.box = NewHBox(r.create, r.action)
 	r.scroller.OnScrolled = func(offset fyne.Position) {
 		r.updateIndicator(false)
@@ -147,7 +152,6 @@ func (t *DocTabs) Select(item *TabItem) {
 // SelectIndex sets the TabItem at the specific index to be selected and its content visible.
 func (t *DocTabs) SelectIndex(index int) {
 	selectIndex(t, index)
-	t.Refresh()
 }
 
 // Selected returns the currently selected TabItem.
@@ -168,7 +172,7 @@ func (t *DocTabs) SetItems(items []*TabItem) {
 
 // SetTabLocation sets the location of the tab bar
 func (t *DocTabs) SetTabLocation(l TabLocation) {
-	t.location = tabsAdjustedLocation(l)
+	t.location = tabsAdjustedLocation(l, t)
 	t.Refresh()
 }
 
@@ -319,18 +323,7 @@ func (r *docTabsRenderer) buildTabButtons(count int, buttons *fyne.Container) {
 	buttons.Objects = nil
 
 	var iconPos buttonIconPosition
-	if fyne.CurrentDevice().IsMobile() {
-		cells := count
-		if cells == 0 {
-			cells = 1
-		}
-		if r.docTabs.location == TabLocationTop || r.docTabs.location == TabLocationBottom {
-			buttons.Layout = layout.NewGridLayoutWithColumns(cells)
-		} else {
-			buttons.Layout = layout.NewGridLayoutWithRows(cells)
-		}
-		iconPos = buttonIconTop
-	} else if r.docTabs.location == TabLocationLeading || r.docTabs.location == TabLocationTrailing {
+	if r.docTabs.location == TabLocationLeading || r.docTabs.location == TabLocationTrailing {
 		buttons.Layout = layout.NewVBoxLayout()
 		iconPos = buttonIconTop
 	} else {
@@ -344,6 +337,7 @@ func (r *docTabsRenderer) buildTabButtons(count int, buttons *fyne.Container) {
 			item.button = &tabButton{
 				onTapped: func() { r.docTabs.Select(item) },
 				onClosed: func() { r.docTabs.close(item) },
+				tabs:     r.tabs,
 			}
 		}
 		button := item.button
@@ -363,6 +357,13 @@ func (r *docTabsRenderer) buildTabButtons(count int, buttons *fyne.Container) {
 
 func (r *docTabsRenderer) scrollToSelected() {
 	buttons := r.scroller.Content.(*fyne.Container)
+
+	// https://github.com/fyne-io/fyne/issues/3909
+	// very dirty temporary fix to this crash!
+	if r.docTabs.current < 0 || r.docTabs.current >= len(buttons.Objects) {
+		return
+	}
+
 	button := buttons.Objects[r.docTabs.current]
 	pos := button.Position()
 	size := button.Size()
@@ -386,9 +387,10 @@ func (r *docTabsRenderer) scrollToSelected() {
 }
 
 func (r *docTabsRenderer) updateIndicator(animate bool) {
+	th := r.docTabs.Theme()
 	if r.docTabs.current < 0 {
 		r.indicator.FillColor = color.Transparent
-		r.indicator.Refresh()
+		r.moveIndicator(fyne.NewPos(0, 0), fyne.NewSize(0, 0), th, animate)
 		return
 	}
 
@@ -421,20 +423,21 @@ func (r *docTabsRenderer) updateIndicator(animate bool) {
 
 	var indicatorPos fyne.Position
 	var indicatorSize fyne.Size
+	pad := th.Size(theme.SizeNamePadding)
 
 	switch r.docTabs.location {
 	case TabLocationTop:
 		indicatorPos = fyne.NewPos(selectedPos.X-scrollOffset.X, r.bar.MinSize().Height)
-		indicatorSize = fyne.NewSize(fyne.Min(selectedSize.Width, scrollSize.Width-indicatorPos.X), theme.Padding())
+		indicatorSize = fyne.NewSize(fyne.Min(selectedSize.Width, scrollSize.Width-indicatorPos.X), pad)
 	case TabLocationLeading:
 		indicatorPos = fyne.NewPos(r.bar.MinSize().Width, selectedPos.Y-scrollOffset.Y)
-		indicatorSize = fyne.NewSize(theme.Padding(), fyne.Min(selectedSize.Height, scrollSize.Height-indicatorPos.Y))
+		indicatorSize = fyne.NewSize(pad, fyne.Min(selectedSize.Height, scrollSize.Height-indicatorPos.Y))
 	case TabLocationBottom:
-		indicatorPos = fyne.NewPos(selectedPos.X-scrollOffset.X, r.bar.Position().Y-theme.Padding())
-		indicatorSize = fyne.NewSize(fyne.Min(selectedSize.Width, scrollSize.Width-indicatorPos.X), theme.Padding())
+		indicatorPos = fyne.NewPos(selectedPos.X-scrollOffset.X, r.bar.Position().Y-pad)
+		indicatorSize = fyne.NewSize(fyne.Min(selectedSize.Width, scrollSize.Width-indicatorPos.X), pad)
 	case TabLocationTrailing:
-		indicatorPos = fyne.NewPos(r.bar.Position().X-theme.Padding(), selectedPos.Y-scrollOffset.Y)
-		indicatorSize = fyne.NewSize(theme.Padding(), fyne.Min(selectedSize.Height, scrollSize.Height-indicatorPos.Y))
+		indicatorPos = fyne.NewPos(r.bar.Position().X-pad, selectedPos.Y-scrollOffset.Y)
+		indicatorSize = fyne.NewSize(pad, fyne.Min(selectedSize.Height, scrollSize.Height-indicatorPos.Y))
 	}
 
 	if indicatorPos.X < 0 {
@@ -451,7 +454,7 @@ func (r *docTabsRenderer) updateIndicator(animate bool) {
 		return
 	}
 
-	r.moveIndicator(indicatorPos, indicatorSize, animate)
+	r.moveIndicator(indicatorPos, indicatorSize, th, animate)
 }
 
 func (r *docTabsRenderer) updateAllTabs() {

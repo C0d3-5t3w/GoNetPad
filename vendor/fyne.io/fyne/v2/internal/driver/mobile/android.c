@@ -1,5 +1,4 @@
 //go:build android
-// +build android
 
 #include <android/log.h>
 #include <dirent.h>
@@ -41,7 +40,7 @@ static jmethodID find_static_method(JNIEnv *env, jclass clazz, const char *name,
 	return m;
 }
 
-char* getString(uintptr_t jni_env, uintptr_t ctx, jstring str) {
+const char* getString(uintptr_t jni_env, uintptr_t ctx, jstring str) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 
 	const char *chars = (*env)->GetStringUTFChars(env, str, NULL);
@@ -65,11 +64,11 @@ jobject parseURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 
 jobject getClipboard(uintptr_t jni_env, uintptr_t ctx) {
 	JNIEnv *env = (JNIEnv*)jni_env;
-	jclass ctxClass = (*env)->GetObjectClass(env, ctx);
+	jclass ctxClass = (*env)->GetObjectClass(env, (jobject)ctx);
 	jmethodID getSystemService = find_method(env, ctxClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
 
 	jstring service = (*env)->NewStringUTF(env, "clipboard");
-	jobject ret = (jobject)(*env)->CallObjectMethod(env, ctx, getSystemService, service);
+	jobject ret = (*env)->CallObjectMethod(env, (jobject)ctx, getSystemService, service);
 	jthrowable err = (*env)->ExceptionOccurred(env);
 
 	if (err != NULL) {
@@ -80,7 +79,7 @@ jobject getClipboard(uintptr_t jni_env, uintptr_t ctx) {
 	return ret;
 }
 
-char *getClipboardContent(uintptr_t java_vm, uintptr_t jni_env, uintptr_t ctx) {
+const char *getClipboardContent(uintptr_t java_vm, uintptr_t jni_env, uintptr_t ctx) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 	jobject mgr = getClipboard(jni_env, ctx);
 	if (mgr == NULL) {
@@ -120,10 +119,10 @@ void setClipboardContent(uintptr_t java_vm, uintptr_t jni_env, uintptr_t ctx, ch
 
 jobject getContentResolver(uintptr_t jni_env, uintptr_t ctx) {
 	JNIEnv *env = (JNIEnv*)jni_env;
-	jclass ctxClass = (*env)->GetObjectClass(env, ctx);
+	jclass ctxClass = (*env)->GetObjectClass(env, (jobject)ctx);
 	jmethodID getContentResolver = find_method(env, ctxClass, "getContentResolver", "()Landroid/content/ContentResolver;");
 
-	return (jobject)(*env)->CallObjectMethod(env, ctx, getContentResolver);
+	return (jobject)(*env)->CallObjectMethod(env, (jobject)ctx, getContentResolver);
 }
 
 void* openStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
@@ -145,7 +144,7 @@ void* openStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	return (*env)->NewGlobalRef(env, stream);
 }
 
-void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
+void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr, bool truncate) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 	jobject resolver = getContentResolver(jni_env, ctx);
 
@@ -153,7 +152,12 @@ void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	jmethodID saveOutputStream = find_method(env, resolverClass, "openOutputStream", "(Landroid/net/Uri;Ljava/lang/String;)Ljava/io/OutputStream;");
 
 	jobject uri = parseURI(jni_env, ctx, uriCstr);
-	jstring modes = (*env)->NewStringUTF(env, "wt"); // truncate before write
+	jstring modes = NULL;
+	if (truncate) {
+		modes = (*env)->NewStringUTF(env, "wt"); // truncate before write
+	} else {
+		modes = (*env)->NewStringUTF(env, "wa");
+	}
 	jobject stream = (jobject)(*env)->CallObjectMethod(env, resolver, saveOutputStream, uri, modes);
 	jthrowable loadErr = (*env)->ExceptionOccurred(env);
 
@@ -165,7 +169,7 @@ void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	return (*env)->NewGlobalRef(env, stream);
 }
 
-char* readStream(uintptr_t jni_env, uintptr_t ctx, void* stream, int len, int* total) {
+jbyte* readStream(uintptr_t jni_env, uintptr_t ctx, void* stream, int len, int* total) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 	jclass streamClass = (*env)->GetObjectClass(env, stream);
 	jmethodID read = find_method(env, streamClass, "read", "([BII)I");
@@ -178,12 +182,12 @@ char* readStream(uintptr_t jni_env, uintptr_t ctx, void* stream, int len, int* t
 		return NULL;
 	}
 
-	char* bytes = malloc(sizeof(char)*count);
+	jbyte* bytes = (jbyte*)malloc(sizeof(jbyte)*count);
 	(*env)->GetByteArrayRegion(env, data, 0, count, bytes);
 	return bytes;
 }
 
-void writeStream(uintptr_t jni_env, uintptr_t ctx, void* stream, char* buf, int len) {
+void writeStream(uintptr_t jni_env, uintptr_t ctx, void* stream, jbyte* buf, int len) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 	jclass streamClass = (*env)->GetObjectClass(env, stream);
 	jmethodID write = find_method(env, streamClass, "write", "([BII)V");
@@ -246,7 +250,7 @@ bool canListContentURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 		return false;
 	}
 
-	char *str = getString(jni_env, ctx, type);
+	const char *str = getString(jni_env, ctx, type);
 	return strcmp(str, "vnd.android.document/directory") == 0;
 }
 
@@ -297,7 +301,7 @@ bool createListableURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	return false;
 }
 
-char* contentURIGetFileName(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
+const char* contentURIGetFileName(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	JNIEnv *env = (JNIEnv*)jni_env;
 	jobject resolver = getContentResolver(jni_env, ctx);
 	jobject uri = parseURI(jni_env, ctx, uriCstr);
@@ -322,19 +326,43 @@ char* contentURIGetFileName(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 
 	if (((jboolean)(*env)->CallBooleanMethod(env, cursor, first)) == JNI_TRUE) {
 		jstring name = (jstring)(*env)->CallObjectMethod(env, cursor, get, 0);
-		char *fname = getString(jni_env, ctx, name);
+		const char *fname = getString(jni_env, ctx, name);
 		return fname;
 	}
 
 	return NULL;
 }
 
-bool existsFileURI(char* uriCstr) {
+char *filePath(char *uriCstr) {
 	// Get file path from URI
 	size_t length = strlen(uriCstr)-7;// -7 for 'file://'
 	char* path = malloc(sizeof(char)*(length+1));// +1 for '\0'
 	memcpy(path, &uriCstr[7], length);
 	path[length] = '\0';
+
+	return path;
+}
+
+bool deleteFileURI(char *uriCstr) {
+	char* path = filePath(uriCstr);
+	int result = remove(path);
+
+	free(path);
+
+	return result == 0;
+}
+
+bool deleteURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
+	if (!hasPrefix(uriCstr, "file://")) {
+	    LOG_FATAL("Cannot delete for scheme: %s", uriCstr);
+		return false;
+	}
+
+	return deleteFileURI(uriCstr);
+}
+
+bool existsFileURI(char* uriCstr) {
+	char* path = filePath(uriCstr);
 
 	// Stat path to determine if it points to an existing file
 	struct stat statbuf;
@@ -401,7 +429,7 @@ char* listContentURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 		jmethodID toString = (*env)->GetMethodID(env, uriClass, "toString", "()Ljava/lang/String;");
 		jstring s = (jstring)(*env)->CallObjectMethod(env, childUri, toString);
 
-		char *uid = getString(jni_env, ctx, s);
+		const char *uid = getString(jni_env, ctx, s);
 
 		// append
 		char *old = ret;
@@ -480,4 +508,26 @@ char* listURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr) {
 	}
 	LOG_FATAL("Unrecognized scheme: %s", uriCstr);
 	return "";
+}
+
+void keepScreenOn(uintptr_t jni_env, uintptr_t ctx, bool disabled) {
+	JNIEnv *env = (JNIEnv*)jni_env;
+	jclass activityClass = find_class(env, "android/app/Activity");
+	jmethodID getWindow = find_method(env, activityClass, "getWindow", "()Landroid/view/Window;");
+
+	jobject win = (*env)->CallObjectMethod(env, (jobject)ctx, getWindow);
+	jclass windowClass = find_class(env, "android/view/Window");
+
+	jmethodID action = NULL;
+	if (disabled) {
+	    action = find_method(env, windowClass, "addFlags", "(I)V");
+	} else {
+	    action = find_method(env, windowClass, "clearFlags", "(I)V");
+	}
+
+    jclass paramsClass = find_class(env, "android/view/WindowManager$LayoutParams" );
+    jfieldID screenFlagField = (*env)->GetStaticFieldID(env, paramsClass, "FLAG_KEEP_SCREEN_ON", "I" );
+    int screenFlag = (*env)->GetStaticIntField(env, paramsClass, screenFlagField);
+
+   	(*env)->CallVoidMethod(env, win, action, screenFlag);
 }

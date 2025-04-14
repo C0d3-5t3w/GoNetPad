@@ -1,12 +1,4 @@
-//go:build (gles || arm || arm64) && !android && !ios && !mobile && !darwin && !js && !wasm && !test_web_driver
-// +build gles arm arm64
-// +build !android
-// +build !ios
-// +build !mobile
-// +build !darwin
-// +build !js
-// +build !wasm
-// +build !test_web_driver
+//go:build (gles || arm || arm64) && !android && !ios && !mobile && !darwin && !wasm && !test_web_driver
 
 package gl
 
@@ -65,7 +57,7 @@ type (
 	Uniform int32
 )
 
-var textureFilterToGL = []int32{gl.LINEAR, gl.NEAREST, gl.LINEAR}
+var textureFilterToGL = [...]int32{gl.LINEAR, gl.NEAREST, gl.LINEAR}
 
 func (p *painter) Init() {
 	p.ctx = &esContext{}

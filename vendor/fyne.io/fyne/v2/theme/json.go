@@ -27,19 +27,27 @@ func FromJSON(data string) (fyne.Theme, error) {
 //
 // Since: 2.2
 func FromJSONReader(r io.Reader) (fyne.Theme, error) {
+	return fromJSONWithFallback(r, DefaultTheme())
+}
+
+func fromJSONWithFallback(r io.Reader, fallback fyne.Theme) (fyne.Theme, error) {
 	var th *schema
 	if err := json.NewDecoder(r).Decode(&th); err != nil {
-		return DefaultTheme(), err
+		return fallback, err
 	}
 
-	return &jsonTheme{data: th, fallback: DefaultTheme()}, nil
+	return &jsonTheme{data: th, fallback: fallback, parsedColors: map[hexColor]color.Color{}}, nil
 }
 
 type hexColor string
 
-func (h hexColor) color() (color.Color, error) {
+func (h hexColor) color(cache map[hexColor]color.Color) (color.Color, error) {
+	if parsed, ok := cache[h]; ok {
+		return parsed, nil
+	}
+
 	data := h
-	switch len(h) {
+	switch len([]rune(h)) {
 	case 8, 6:
 	case 9, 7: // remove # prefix
 		data = h[1:]
@@ -73,6 +81,9 @@ func (h hexColor) color() (color.Color, error) {
 		ret.A = 0xff
 	}
 
+	if cache != nil {
+		cache[h] = ret
+	}
 	return ret, nil
 }
 
@@ -105,13 +116,15 @@ type schema struct {
 type jsonTheme struct {
 	data     *schema
 	fallback fyne.Theme
+
+	parsedColors map[hexColor]color.Color
 }
 
 func (t *jsonTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch variant {
 	case VariantLight:
 		if val, ok := t.data.LightColors[string(name)]; ok {
-			c, err := val.color()
+			c, err := val.color(t.parsedColors)
 			if err != nil {
 				fyne.LogError("Failed to parse color", err)
 			} else {
@@ -120,7 +133,7 @@ func (t *jsonTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) c
 		}
 	case VariantDark:
 		if val, ok := t.data.DarkColors[string(name)]; ok {
-			c, err := val.color()
+			c, err := val.color(t.parsedColors)
 			if err != nil {
 				fyne.LogError("Failed to parse color", err)
 			} else {
@@ -130,7 +143,7 @@ func (t *jsonTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) c
 	}
 
 	if val, ok := t.data.Colors[string(name)]; ok {
-		c, err := val.color()
+		c, err := val.color(t.parsedColors)
 		if err != nil {
 			fyne.LogError("Failed to parse color", err)
 		} else {

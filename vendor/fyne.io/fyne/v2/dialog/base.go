@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	col "fyne.io/fyne/v2/internal/color"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -26,8 +27,15 @@ type Dialog interface {
 	Refresh()
 	Resize(size fyne.Size)
 
+	// MinSize returns the size that this dialog should not shrink below.
+	//
 	// Since: 2.1
 	MinSize() fyne.Size
+
+	// Dismiss instructs the dialog to close without any affirmative action.
+	//
+	// Since: 2.6
+	Dismiss()
 }
 
 // Declare conformity to Dialog interface
@@ -43,13 +51,20 @@ type dialog struct {
 	content fyne.CanvasObject
 	dismiss *widget.Button
 	parent  fyne.Window
+
+	// allows derived dialogs to inject logic that runs before Show()
+	beforeShowHook func()
+}
+
+func (d *dialog) Dismiss() {
+	d.Hide()
 }
 
 func (d *dialog) Hide() {
 	d.hideWithResponse(false)
 }
 
-// MinSize returns the size that this dialog should not shrink below
+// MinSize returns the size that this dialog should not shrink below.
 //
 // Since: 2.1
 func (d *dialog) MinSize() fyne.Size {
@@ -57,6 +72,9 @@ func (d *dialog) MinSize() fyne.Size {
 }
 
 func (d *dialog) Show() {
+	if d.beforeShowHook != nil {
+		d.beforeShowHook()
+	}
 	if !d.desiredSize.IsZero() {
 		d.win.Resize(d.desiredSize)
 	}
@@ -70,7 +88,9 @@ func (d *dialog) Refresh() {
 // Resize dialog, call this function after dialog show
 func (d *dialog) Resize(size fyne.Size) {
 	d.desiredSize = size
-	d.win.Resize(size)
+	if d.win != nil { // could be called before popup is created!
+		d.win.Resize(size)
+	}
 }
 
 // SetDismissText allows custom text to be set in the dismiss button
@@ -91,10 +111,10 @@ func (d *dialog) SetOnClosed(closed func()) {
 	originalCallback := d.callback
 
 	d.callback = func(response bool) {
-		closed()
 		if originalCallback != nil {
 			originalCallback(response)
 		}
+		closed()
 	}
 }
 
@@ -108,8 +128,15 @@ func (d *dialog) hideWithResponse(resp bool) {
 func (d *dialog) create(buttons fyne.CanvasObject) {
 	label := widget.NewLabelWithStyle(d.title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
+	var image fyne.CanvasObject
+	if d.icon != nil {
+		image = &canvas.Image{Resource: d.icon}
+	} else {
+		image = &layout.Spacer{}
+	}
+
 	content := container.New(&dialogLayout{d: d},
-		&canvas.Image{Resource: d.icon},
+		image,
 		newThemedBackground(),
 		d.content,
 		buttons,
@@ -124,16 +151,22 @@ func (d *dialog) setButtons(buttons fyne.CanvasObject) {
 	d.win.Refresh()
 }
 
-// The method .create() needs to be called before the dialog cna be shown.
+func (d *dialog) setIcon(icon fyne.Resource) {
+	if icon == nil {
+		d.win.Content.(*fyne.Container).Objects[0] = &layout.Spacer{}
+		d.win.Refresh()
+		return
+	}
+	d.win.Content.(*fyne.Container).Objects[0] = &canvas.Image{Resource: icon}
+	d.win.Refresh()
+}
+
+// The method .create() needs to be called before the dialog can be shown.
 func newDialog(title, message string, icon fyne.Resource, callback func(bool), parent fyne.Window) *dialog {
-	d := &dialog{content: newCenterLabel(message), title: title, icon: icon, parent: parent}
+	d := &dialog{content: newCenterWrappedLabel(message), title: title, icon: icon, parent: parent}
 	d.callback = callback
 
 	return d
-}
-
-func newCenterLabel(message string) fyne.CanvasObject {
-	return &widget.Label{Text: message, Alignment: fyne.TextAlignCenter}
 }
 
 // ===============================================================
@@ -152,7 +185,7 @@ func newThemedBackground() *themedBackground {
 
 func (t *themedBackground) CreateRenderer() fyne.WidgetRenderer {
 	t.ExtendBaseWidget(t)
-	rect := canvas.NewRectangle(theme.OverlayBackgroundColor())
+	rect := canvas.NewRectangle(theme.Color(theme.ColorNameOverlayBackground))
 	return &themedBackgroundRenderer{rect, []fyne.CanvasObject{rect}}
 }
 
@@ -177,7 +210,7 @@ func (renderer *themedBackgroundRenderer) Objects() []fyne.CanvasObject {
 }
 
 func (renderer *themedBackgroundRenderer) Refresh() {
-	r, g, b, _ := col.ToNRGBA(theme.OverlayBackgroundColor())
+	r, g, b, _ := col.ToNRGBA(theme.Color(theme.ColorNameOverlayBackground))
 	bg := &color.NRGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 230}
 	renderer.rect.FillColor = bg
 }
