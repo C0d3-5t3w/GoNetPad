@@ -64,10 +64,6 @@ func main() {
 	editor := ui.NewEditor(w)
 	var currentText string
 
-	// Create a text edit helper for accessing the underlying text widget
-	var entryWidget *widget.Entry
-	var textEditHelper *ui.TextEditHelper
-
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		for range ticker.C {
