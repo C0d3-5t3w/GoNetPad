@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -310,22 +311,27 @@ func openFile(editor *ui.Editor, w fyne.Window) {
 	logger.InfoLogger.Println("Open file action triggered")
 	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 		if err != nil {
+			logger.ErrorLogger.Printf("Error opening file: %v", err)
 			dialog.ShowError(err, w)
 			return
 		}
 		if reader == nil {
+			logger.InfoLogger.Println("No file selected")
 			return
 		}
 		defer reader.Close()
 
-		data, err := os.ReadFile(reader.URI().Path())
+		data, err := io.ReadAll(reader)
 		if err != nil {
+			logger.ErrorLogger.Printf("Error reading file: %v", err)
 			dialog.ShowError(err, w)
 			return
 		}
 
 		editor.TextArea.SetText(string(data))
 		editor.SetFilePath(reader.URI().Path())
+		editor.StatusBar.ShowTemporaryMessage(fmt.Sprintf("Opened %s", reader.URI().Name()))
+		logger.InfoLogger.Printf("File opened successfully: %s", reader.URI().Path())
 	}, w)
 	fd.Show()
 }
@@ -337,7 +343,7 @@ func saveFile(editor *ui.Editor, w fyne.Window) {
 		return
 	}
 
-	err := os.WriteFile(editor.FilePath, []byte(editor.TextArea.Text), 0644)
+	err := os.WriteFile(editor.FilePath, []byte(editor.TextArea.GetText()), 0644)
 	if err != nil {
 		dialog.ShowError(err, w)
 		return
@@ -358,7 +364,7 @@ func saveFileAs(editor *ui.Editor, w fyne.Window) {
 		}
 		defer writer.Close()
 
-		_, err = writer.Write([]byte(editor.TextArea.Text))
+		_, err = writer.Write([]byte(editor.TextArea.GetText()))
 		if err != nil {
 			dialog.ShowError(err, w)
 			return

@@ -137,6 +137,7 @@ func (ln *LineNumbersView) UpdateLineNumbers(text string) {
 	lines := strings.Split(text, "\n")
 	lineCount := len(lines)
 	ln.SetLineCount(lineCount)
+	ln.SetCurrentLine(0)
 }
 
 func (ln *LineNumbersView) ExtendBaseWidget(w fyne.Widget) {

@@ -30,7 +30,7 @@ func (h *TextHistory) Undo() (string, bool) {
 		h.current--
 		return h.entries[h.current], true
 	}
-	return h.entries[0], false
+	return "", false
 }
 
 func (h *TextHistory) Redo() (string, bool) {
@@ -38,5 +38,5 @@ func (h *TextHistory) Redo() (string, bool) {
 		h.current++
 		return h.entries[h.current], true
 	}
-	return h.entries[h.current], false
+	return "", false
 }

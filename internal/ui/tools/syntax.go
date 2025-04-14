@@ -92,7 +92,62 @@ func (sh *SyntaxHighlighter) HighlightCode(code string) *fyne.Container {
 		textObjects = append(textObjects, text)
 	}
 
-	return container.NewHBox(textObjects...)
+	return container.NewVBox(textObjects...)
+}
+
+func (sh *SyntaxHighlighter) HighlightCodeAsRichText(code string) string {
+	tokens := sh.tokenize(code)
+	var highlightedText strings.Builder
+
+	for _, t := range tokens {
+		switch t.tokenType {
+		case tokenKeyword:
+			highlightedText.WriteString("[Keyword]" + t.text + "[/Keyword]")
+		case tokenString:
+			highlightedText.WriteString("[String]" + t.text + "[/String]")
+		case tokenComment:
+			highlightedText.WriteString("[Comment]" + t.text + "[/Comment]")
+		default:
+			highlightedText.WriteString(t.text)
+		}
+	}
+
+	return highlightedText.String()
+}
+
+func (sh *SyntaxHighlighter) HighlightCodeAsRichTextSegments(code string) []widget.RichTextSegment {
+	tokens := sh.tokenize(code)
+	var segments []widget.RichTextSegment
+
+	for _, t := range tokens {
+		style := richTextStyleForToken(t.tokenType)
+		segments = append(segments, &widget.TextSegment{
+			Text:  t.text,
+			Style: style,
+		})
+	}
+
+	return segments
+}
+
+func (sh *SyntaxHighlighter) ApplySyntaxHighlighting(code string) string {
+	tokens := sh.tokenize(code)
+	var highlightedText strings.Builder
+
+	for _, t := range tokens {
+		switch t.tokenType {
+		case tokenKeyword:
+			highlightedText.WriteString(t.text)
+		case tokenString:
+			highlightedText.WriteString(t.text)
+		case tokenComment:
+			highlightedText.WriteString(t.text)
+		default:
+			highlightedText.WriteString(t.text)
+		}
+	}
+
+	return highlightedText.String()
 }
 
 func (sh *SyntaxHighlighter) tokenize(code string) []token {

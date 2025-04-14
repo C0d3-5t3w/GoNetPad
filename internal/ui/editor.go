@@ -34,11 +34,11 @@ type Editor struct {
 }
 
 func (e *Editor) SetText(text string) {
-	e.TextArea.Text = text
+	e.TextArea.SetText(text)
 }
 
 func (e *Editor) GetText() string {
-	return e.TextArea.Text
+	return e.TextArea.GetText()
 }
 
 func (e *Editor) GetSelectedText() string {
@@ -47,6 +47,7 @@ func (e *Editor) GetSelectedText() string {
 }
 
 type TextArea struct {
+	TextWidget   *widget.RichText
 	Text         string
 	CursorRow    int
 	CursorColumn int
@@ -54,6 +55,16 @@ type TextArea struct {
 
 func (t *TextArea) SetText(text string) {
 	t.Text = text
+	if t.TextWidget != nil {
+		t.TextWidget.Segments = []widget.RichTextSegment{
+			&widget.TextSegment{Text: text},
+		}
+		t.TextWidget.Refresh()
+	}
+}
+
+func (t *TextArea) GetText() string {
+	return t.Text
 }
 
 type History struct {
@@ -127,8 +138,8 @@ func NewEditor(window fyne.Window) *Editor {
 		FilePath: "",
 	}
 
-	fyneTextArea := widget.NewMultiLineEntry()
-	fyneTextArea.SetPlaceHolder("Enter Text Here...")
+	fyneRichText := widget.NewRichText()
+	editor.TextArea.TextWidget = fyneRichText
 
 	editor.LineNumbers = &LineNumbers{}
 	editor.StatusBar = &StatusBar{}
@@ -139,25 +150,16 @@ func NewEditor(window fyne.Window) *Editor {
 	commandInput.SetPlaceHolder(":")
 	commandInput.Hide()
 
-	fyneTextArea.OnChanged = func(text string) {
-		editor.TextArea.Text = text
-		editor.updateLineNumbers(text)
-		lineNumbersView.UpdateLineNumbers(text)
-		lineNumbersView.Refresh()
-		statusBar.SetPosition(fyneTextArea.CursorRow, fyneTextArea.CursorColumn)
-		editor.History.Add(text)
-	}
-
 	tabContainer := container.NewDocTabs()
 
-	setupUI(editor, fyneTextArea, lineNumbersView, statusBar, commandInput, tabContainer)
-	setupKeyBindings(editor, fyneTextArea, commandInput, statusBar)
+	setupUI(editor, fyneRichText, lineNumbersView, statusBar, commandInput, tabContainer)
+	setupKeyBindings(editor, fyneRichText, commandInput, statusBar)
 
 	return editor
 }
 
 func setupUI(e *Editor,
-	textArea *widget.Entry,
+	textArea *widget.RichText,
 	lineNumbers *components.LineNumbersView,
 	statusBar *components.StatusBar,
 	commandInput *widget.Entry,
@@ -169,7 +171,7 @@ func setupUI(e *Editor,
 
 	languageOptions := []string{"text", "go", "javascript", "typescript", "html", "css", "python", "rust", "c", "c++", "java"}
 	languageSelector := widget.NewSelect(languageOptions, func(selected string) {
-		updateSyntaxHighlighting(e, textArea.Text, selected, tabContainer)
+		updateSyntaxHighlighting(e, e.TextArea.Text, selected, tabContainer)
 		statusBar.SetLanguage(selected)
 	})
 	languageSelector.SetSelected("text")
@@ -179,7 +181,6 @@ func setupUI(e *Editor,
 		commandInput.Hide()
 		e.CurrentMode = NormalMode
 		statusBar.SetMode("NORMAL")
-		textArea.FocusGained()
 	}
 
 	toolbar := container.NewHBox(
@@ -220,7 +221,7 @@ func setupUI(e *Editor,
 	e.Window.SetContent(mainContainer)
 }
 
-func setupKeyBindings(e *Editor, textArea *widget.Entry, commandInput *widget.Entry, statusBar *components.StatusBar) {
+func setupKeyBindings(e *Editor, textArea *widget.RichText, commandInput *widget.Entry, statusBar *components.StatusBar) {
 	e.Window.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
 		if e.CurrentMode == NormalMode {
 			switch key.Name {
@@ -282,14 +283,13 @@ func executeCommand(e *Editor, cmd string, lineNumbers *components.LineNumbersVi
 	}
 }
 
-func handleFormatCode(e *Editor, textArea *widget.Entry, statusBar *components.StatusBar) {
-	formatted, err := tools.FormatCode(textArea.Text)
+func handleFormatCode(e *Editor, textArea *widget.RichText, statusBar *components.StatusBar) {
+	formatted, err := tools.FormatCode(e.TextArea.Text)
 	if err != nil {
 		dialog.ShowError(err, e.Window)
 		return
 	}
-	textArea.SetText(formatted)
-	e.TextArea.Text = formatted
+	e.TextArea.SetText(formatted)
 	statusBar.ShowTemporaryMessage("Code formatted")
 }
 
@@ -318,20 +318,9 @@ func updateSyntaxHighlighting(e *Editor, text string, language string, tabContai
 	}
 
 	highlighter := tools.NewSyntaxHighlighter(language)
-	coloredCodeView := highlighter.HighlightCode(text)
+	highlightedSegments := highlighter.HighlightCodeAsRichTextSegments(text)
 
-	scrollContainer := container.NewScroll(coloredCodeView)
-
-	if e.CurrentView == nil {
-
-		e.CurrentView = container.NewBorder(nil, nil, nil, nil, tabContainer)
-		e.Window.SetContent(e.CurrentView)
-	} else if split, ok := e.CurrentView.(*container.Split); ok {
-		split.Trailing = scrollContainer
-		split.Refresh()
-	} else {
-
-		e.CurrentView = container.NewBorder(nil, nil, nil, nil, tabContainer)
-		e.Window.SetContent(e.CurrentView)
-	}
+	e.TextArea.TextWidget.Segments = highlightedSegments
+	e.TextArea.TextWidget.Refresh()
+	e.TextArea.Text = text
 }
