@@ -55,7 +55,7 @@ func main() {
 		logger.ErrorLogger.Printf("Failed to configure locale: %v\n", err)
 	}
 
-	a.Settings().SetTheme(themes.NewNeovimTheme())
+	a.Settings().SetTheme(themes.NewBaseTheme())
 
 	w := a.NewWindow(config.AppConfig.WindowTitle)
 	w.Resize(fyne.NewSize(float32(config.AppConfig.WindowWidth), float32(config.AppConfig.WindowHeight)))
@@ -101,11 +101,8 @@ func main() {
 			fyne.NewMenuItem("Toggle Status Bar", func() { toggleStatusBar(editor) }),
 		),
 		fyne.NewMenu("Themes",
-			fyne.NewMenuItem("Neovim Dark", func() {
-				a.Settings().SetTheme(themes.NewNeovimTheme())
-			}),
-			fyne.NewMenuItem("Base Theme", func() {
-				a.Settings().SetTheme(themes.BaseTheme)
+			fyne.NewMenuItem("Base Dark", func() {
+				a.Settings().SetTheme(themes.NewBaseTheme())
 			}),
 		),
 	)
