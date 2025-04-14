@@ -2,6 +2,7 @@ package dialog
 
 import (
 	"strconv"
+	"sync/atomic"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -151,7 +152,7 @@ func (e *colorChannelEntry) MinSize() fyne.Size {
 
 type userChangeEntry struct {
 	widget.Entry
-	userTyped bool
+	userTyped uint32 // atomic, 0 == false, 1 == true
 }
 
 func newUserChangeEntry(text string) *userChangeEntry {
@@ -163,12 +164,9 @@ func newUserChangeEntry(text string) *userChangeEntry {
 
 func (e *userChangeEntry) setOnChanged(onChanged func(s string)) {
 	e.Entry.OnChanged = func(text string) {
-		if !e.userTyped {
+		if !atomic.CompareAndSwapUint32(&e.userTyped, 1, 0) {
 			return
 		}
-
-		e.userTyped = false
-
 		if onChanged != nil {
 			onChanged(text)
 		}
@@ -177,11 +175,11 @@ func (e *userChangeEntry) setOnChanged(onChanged func(s string)) {
 }
 
 func (e *userChangeEntry) TypedRune(r rune) {
-	e.userTyped = true
+	atomic.StoreUint32(&e.userTyped, 1)
 	e.Entry.TypedRune(r)
 }
 
 func (e *userChangeEntry) TypedKey(ev *fyne.KeyEvent) {
-	e.userTyped = true
+	atomic.StoreUint32(&e.userTyped, 1)
 	e.Entry.TypedKey(ev)
 }

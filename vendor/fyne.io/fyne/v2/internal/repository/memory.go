@@ -1,13 +1,13 @@
 package repository
 
 import (
-	"fmt"
-	"io"
-	"strings"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/storage/repository"
+
+	"fmt"
+	"io"
+	"strings"
 )
 
 // declare conformance to interfaces
@@ -19,7 +19,6 @@ var _ fyne.URIWriteCloser = (*nodeReaderWriter)(nil)
 // declare conformance with repository types
 var _ repository.Repository = (*InMemoryRepository)(nil)
 var _ repository.WritableRepository = (*InMemoryRepository)(nil)
-var _ repository.AppendableRepository = (*InMemoryRepository)(nil)
 var _ repository.HierarchicalRepository = (*InMemoryRepository)(nil)
 var _ repository.CopyableRepository = (*InMemoryRepository)(nil)
 var _ repository.MovableRepository = (*InMemoryRepository)(nil)
@@ -40,7 +39,7 @@ type nodeReaderWriter struct {
 // "virtual repository". In future, we may consider moving this into the public
 // API.
 //
-// Because of its design, this repository has several quirks:
+// Because of it's design, this repository has several quirks:
 //
 // * The Parent() of a path that exists does not necessarily exist
 //
@@ -211,18 +210,6 @@ func (m *InMemoryRepository) Writer(u fyne.URI) (fyne.URIWriteCloser, error) {
 	return &nodeReaderWriter{path: path, repo: m}, nil
 }
 
-// Appender implements repository.AppendableRepository.Appender
-//
-// Since: 2.6
-func (m *InMemoryRepository) Appender(u fyne.URI) (fyne.URIWriteCloser, error) {
-	path := u.Path()
-	if path == "" {
-		return nil, fmt.Errorf("invalid path '%s'", path)
-	}
-
-	return &nodeReaderWriter{path: path, repo: m, writing: true, writeCursor: len(m.Data[path])}, nil
-}
-
 // CanWrite implements repository.WritableRepository.CanWrite
 //
 // Since: 2.0
@@ -279,18 +266,7 @@ func (m *InMemoryRepository) Move(source, destination fyne.URI) error {
 //
 // Since: 2.0
 func (m *InMemoryRepository) CanList(u fyne.URI) (bool, error) {
-	path := u.Path()
-	exist, err := m.Exists(u)
-	if err != nil || !exist {
-		return false, err
-	}
-
-	if path == "" || path[len(path)-1] == '/' {
-		return true, nil
-	}
-
-	children, err := m.List(u)
-	return len(children) > 0, err
+	return m.Exists(u)
 }
 
 // List implements repository.ListableRepository.List()
@@ -321,7 +297,7 @@ func (m *InMemoryRepository) List(u fyne.URI) ([]fyne.URI, error) {
 		// does not have one.
 		pSplit := strings.Split(p, "/")
 		ncomp := len(pSplit)
-		if len(p) > 0 && p[len(p)-1] == '/' {
+		if p[len(p)-1] == '/' {
 			ncomp--
 		}
 
@@ -338,7 +314,7 @@ func (m *InMemoryRepository) List(u fyne.URI) ([]fyne.URI, error) {
 	return listing, nil
 }
 
-// CreateListable implements repository.ListableRepository.CreateListable.
+// CreateListable impelements repository.ListableRepository.CreateListable.
 //
 // Since: 2.0
 func (m *InMemoryRepository) CreateListable(u fyne.URI) error {

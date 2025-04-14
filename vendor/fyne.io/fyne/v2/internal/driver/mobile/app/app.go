@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build freebsd || linux || darwin || windows || openbsd
+//go:build freebsd || linux || darwin || windows
+// +build freebsd linux darwin windows
 
 package app
 
@@ -35,10 +36,10 @@ type App interface {
 	//  - touch.Event
 	// from the golang.org/x/mobile/event/etc packages. Other packages may
 	// define other event types that are carried on this channel.
-	Events() <-chan any
+	Events() <-chan interface{}
 
 	// Send sends an event on the events channel. It does not block.
-	Send(event any)
+	Send(event interface{})
 
 	// Publish flushes any pending drawing commands, such as OpenGL calls, and
 	// swaps the back buffer to the screen.
@@ -47,13 +48,13 @@ type App interface {
 	// TODO: replace filters (and the Events channel) with a NextEvent method?
 
 	// Filter calls each registered event filter function in sequence.
-	Filter(event any) any
+	Filter(event interface{}) interface{}
 
 	// RegisterFilter registers a event filter function to be called by Filter. The
 	// function can return a different event, or return nil to consume the event,
 	// but the function can also return its argument unchanged, where its purpose
 	// is to trigger a side effect rather than modify the event.
-	RegisterFilter(f func(any) any)
+	RegisterFilter(f func(interface{}) interface{})
 
 	ShowVirtualKeyboard(KeyboardType)
 	HideVirtualKeyboard()
@@ -75,7 +76,7 @@ type PublishResult struct {
 }
 
 var theApp = &app{
-	events:         async.NewUnboundedChan[any](),
+	events:         async.NewUnboundedInterfaceChan(),
 	lifecycleStage: lifecycle.StageDead,
 	publish:        make(chan struct{}),
 	publishResult:  make(chan PublishResult),
@@ -98,9 +99,9 @@ func (a *app) sendLifecycle(to lifecycle.Stage) {
 }
 
 type app struct {
-	filters []func(any) any
+	filters []func(interface{}) interface{}
 
-	events         *async.UnboundedChan[any]
+	events         *async.UnboundedInterfaceChan
 	lifecycleStage lifecycle.Stage
 	publish        chan struct{}
 	publishResult  chan PublishResult
@@ -109,11 +110,11 @@ type app struct {
 	worker gl.Worker
 }
 
-func (a *app) Events() <-chan any {
+func (a *app) Events() <-chan interface{} {
 	return a.events.Out()
 }
 
-func (a *app) Send(event any) {
+func (a *app) Send(event interface{}) {
 	a.events.In() <- event
 }
 
@@ -130,14 +131,14 @@ func (a *app) Publish() PublishResult {
 	return <-a.publishResult
 }
 
-func (a *app) Filter(event any) any {
+func (a *app) Filter(event interface{}) interface{} {
 	for _, f := range a.filters {
 		event = f(event)
 	}
 	return event
 }
 
-func (a *app) RegisterFilter(f func(any) any) {
+func (a *app) RegisterFilter(f func(interface{}) interface{}) {
 	a.filters = append(a.filters, f)
 }
 
@@ -162,7 +163,7 @@ func (a *app) ShowFileSavePicker(callback func(string, func()), filter *FileFilt
 // TODO: does Android need this?? It seems to work without it (Nexus 7,
 // KitKat). If only x11 needs this, should we move this to x11.go??
 func (a *app) registerGLViewportFilter() {
-	a.RegisterFilter(func(e any) any {
+	a.RegisterFilter(func(e interface{}) interface{} {
 		if e, ok := e.(size.Event); ok {
 			a.glctx.Viewport(0, 0, e.WidthPx, e.HeightPx)
 		}

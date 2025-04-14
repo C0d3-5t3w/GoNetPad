@@ -24,7 +24,7 @@ type ProgressInfiniteDialog struct {
 //
 // Deprecated: Use NewCustomWithoutButtons() and add a widget.ProgressBarInfinite() inside.
 func NewProgressInfinite(title, message string, parent fyne.Window) *ProgressInfiniteDialog {
-	d := newTextDialog(title, message, theme.InfoIcon(), parent)
+	d := newDialog(title, message, theme.InfoIcon(), nil /*cancel?*/, parent)
 	bar := widget.NewProgressBarInfinite()
 	rect := canvas.NewRectangle(color.Transparent)
 	rect.SetMinSize(fyne.NewSize(200, 0))

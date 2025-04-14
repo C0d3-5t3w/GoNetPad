@@ -1,26 +1,13 @@
-//go:build wasm || test_web_driver
+//go:build js || wasm || test_web_driver
+// +build js wasm test_web_driver
 
 package glfw
 
-import (
-	"time"
-
-	"fyne.io/fyne/v2"
-)
-
-const webDefaultDoubleTapDelay = 300 * time.Millisecond
+import "fyne.io/fyne/v2"
 
 func (d *gLDriver) SetSystemTrayMenu(m *fyne.Menu) {
 	// no-op for mobile apps using this driver
 }
 
 func (d *gLDriver) catchTerm() {
-}
-
-func setDisableScreenBlank(disable bool) {
-	// awaiting complete support for WakeLock
-}
-
-func (d *gLDriver) DoubleTapDelay() time.Duration {
-	return webDefaultDoubleTapDelay
 }

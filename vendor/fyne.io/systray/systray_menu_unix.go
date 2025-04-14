@@ -1,4 +1,5 @@
-//go:build (linux || freebsd || openbsd || netbsd) && !android
+//go:build linux || freebsd || openbsd || netbsd
+// +build linux freebsd openbsd netbsd
 
 package systray
 

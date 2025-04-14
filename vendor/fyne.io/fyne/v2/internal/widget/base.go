@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"sync"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/internal/cache"
@@ -11,7 +13,9 @@ type Base struct {
 	hidden   bool
 	position fyne.Position
 	size     fyne.Size
-	impl     fyne.Widget
+
+	impl         fyne.Widget
+	propertyLock sync.RWMutex
 }
 
 // ExtendBaseWidget is used by an extending widget to make use of BaseWidget functionality.
@@ -21,24 +25,34 @@ func (w *Base) ExtendBaseWidget(wid fyne.Widget) {
 		return
 	}
 
+	w.propertyLock.Lock()
+	defer w.propertyLock.Unlock()
 	w.impl = wid
 }
 
 // Size gets the current size of this widget.
 func (w *Base) Size() fyne.Size {
+	w.propertyLock.RLock()
+	defer w.propertyLock.RUnlock()
+
 	return w.size
 }
 
 // Resize sets a new size for a widget.
 // Note this should not be used if the widget is being managed by a Layout within a Container.
 func (w *Base) Resize(size fyne.Size) {
-	if size == w.Size() {
+	w.propertyLock.RLock()
+	baseSize := w.size
+	impl := w.impl
+	w.propertyLock.RUnlock()
+	if baseSize == size {
 		return
 	}
 
+	w.propertyLock.Lock()
 	w.size = size
+	w.propertyLock.Unlock()
 
-	impl := w.super()
 	if impl == nil {
 		return
 	}
@@ -47,13 +61,18 @@ func (w *Base) Resize(size fyne.Size) {
 
 // Position gets the current position of this widget, relative to its parent.
 func (w *Base) Position() fyne.Position {
+	w.propertyLock.RLock()
+	defer w.propertyLock.RUnlock()
+
 	return w.position
 }
 
 // Move the widget to a new position, relative to its parent.
 // Note this should not be used if the widget is being managed by a Layout within a Container.
 func (w *Base) Move(pos fyne.Position) {
+	w.propertyLock.Lock()
 	w.position = pos
+	w.propertyLock.Unlock()
 
 	Repaint(w.super())
 }
@@ -73,33 +92,34 @@ func (w *Base) MinSize() fyne.Size {
 // Visible returns whether or not this widget should be visible.
 // Note that this may not mean it is currently visible if a parent has been hidden.
 func (w *Base) Visible() bool {
+	w.propertyLock.RLock()
+	defer w.propertyLock.RUnlock()
+
 	return !w.hidden
 }
 
 // Show this widget so it becomes visible
 func (w *Base) Show() {
-	if !w.hidden {
-		return // Visible already
-	}
-
-	w.hidden = false
-
-	impl := w.super()
-	if impl == nil {
+	if w.Visible() {
 		return
 	}
-	impl.Refresh()
+
+	w.setFieldsAndRefresh(func() {
+		w.hidden = false
+	})
 }
 
 // Hide this widget so it is no longer visible
 func (w *Base) Hide() {
-	if w.hidden {
-		return // Hidden already
+	if !w.Visible() {
+		return
 	}
 
+	w.propertyLock.Lock()
 	w.hidden = true
+	impl := w.impl
+	w.propertyLock.Unlock()
 
-	impl := w.super()
 	if impl == nil {
 		return
 	}
@@ -113,24 +133,41 @@ func (w *Base) Refresh() {
 		return
 	}
 
-	cache.Renderer(impl).Refresh()
+	render := cache.Renderer(impl)
+	render.Refresh()
+}
+
+// setFieldsAndRefresh helps to make changes to a widget that should be followed by a refresh.
+// This method is a guaranteed thread-safe way of directly manipulating widget fields.
+func (w *Base) setFieldsAndRefresh(f func()) {
+	w.propertyLock.Lock()
+	f()
+	impl := w.impl
+	w.propertyLock.Unlock()
+
+	if impl == nil {
+		return
+	}
+	impl.Refresh()
 }
 
 // super will return the actual object that this represents.
 // If extended then this is the extending widget, otherwise it is nil.
 func (w *Base) super() fyne.Widget {
-	return w.impl
+	w.propertyLock.RLock()
+	impl := w.impl
+	w.propertyLock.RUnlock()
+	return impl
 }
 
 // Repaint instructs the containing canvas to redraw, even if nothing changed.
 // This method is a duplicate of what is in `canvas/canvas.go` to avoid a dependency loop or public API.
 func Repaint(obj fyne.CanvasObject) {
-	app := fyne.CurrentApp()
-	if app == nil || app.Driver() == nil {
+	if fyne.CurrentApp() == nil || fyne.CurrentApp().Driver() == nil {
 		return
 	}
 
-	c := app.Driver().CanvasForObject(obj)
+	c := fyne.CurrentApp().Driver().CanvasForObject(obj)
 	if c != nil {
 		if paint, ok := c.(interface{ SetDirty() }); ok {
 			paint.SetDirty()

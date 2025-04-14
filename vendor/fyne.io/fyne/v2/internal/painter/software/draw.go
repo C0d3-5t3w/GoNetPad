@@ -3,7 +3,6 @@ package software
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"math"
 
 	"fyne.io/fyne/v2"
@@ -47,7 +46,7 @@ func drawGradient(c fyne.Canvas, g gradient, pos fyne.Position, base *image.NRGB
 	width := scale.ToScreenCoordinate(c, bounds.Width)
 	height := scale.ToScreenCoordinate(c, bounds.Height)
 	tex := g.Generate(width, height)
-	drawTex(scale.ToScreenCoordinate(c, pos.X), scale.ToScreenCoordinate(c, pos.Y), width, height, base, tex, clip, 1.0)
+	drawTex(scale.ToScreenCoordinate(c, pos.X), scale.ToScreenCoordinate(c, pos.Y), width, height, base, tex, clip)
 }
 
 func drawImage(c fyne.Canvas, img *canvas.Image, pos fyne.Position, base *image.NRGBA, clip image.Rectangle) {
@@ -76,13 +75,13 @@ func drawImage(c fyne.Canvas, img *canvas.Image, pos fyne.Position, base *image.
 		}
 	}
 
-	drawPixels(scaledX, scaledY, width, height, img.ScaleMode, base, origImg, clip, img.Alpha())
+	drawPixels(scaledX, scaledY, width, height, img.ScaleMode, base, origImg, clip)
 }
 
-func drawPixels(x, y, width, height int, mode canvas.ImageScale, base *image.NRGBA, origImg image.Image, clip image.Rectangle, alpha float64) {
+func drawPixels(x, y, width, height int, mode canvas.ImageScale, base *image.NRGBA, origImg image.Image, clip image.Rectangle) {
 	if origImg.Bounds().Dx() == width && origImg.Bounds().Dy() == height {
 		// do not scale or duplicate image since not needed, draw directly
-		drawTex(x, y, width, height, base, origImg, clip, alpha)
+		drawTex(x, y, width, height, base, origImg, clip)
 		return
 	}
 
@@ -100,7 +99,7 @@ func drawPixels(x, y, width, height int, mode canvas.ImageScale, base *image.NRG
 		draw.CatmullRom.Scale(scaledImg, scaledBounds, origImg, origImg.Bounds(), draw.Over, nil)
 	}
 
-	drawTex(x, y, width, height, base, scaledImg, clip, alpha)
+	drawTex(x, y, width, height, base, scaledImg, clip)
 }
 
 func drawLine(c fyne.Canvas, line *canvas.Line, pos fyne.Position, base *image.NRGBA, clip image.Rectangle) {
@@ -125,16 +124,11 @@ func drawLine(c fyne.Canvas, line *canvas.Line, pos fyne.Position, base *image.N
 	draw.Draw(base, bounds, raw, image.Point{offX, offY}, draw.Over)
 }
 
-func drawTex(x, y, width, height int, base *image.NRGBA, tex image.Image, clip image.Rectangle, alpha float64) {
+func drawTex(x, y, width, height int, base *image.NRGBA, tex image.Image, clip image.Rectangle) {
 	outBounds := image.Rect(x, y, x+width, y+height)
 	clippedBounds := clip.Intersect(outBounds)
 	srcPt := image.Point{X: clippedBounds.Min.X - outBounds.Min.X, Y: clippedBounds.Min.Y - outBounds.Min.Y}
-	if alpha == 1.0 {
-		draw.Draw(base, clippedBounds, tex, srcPt, draw.Over)
-	} else {
-		mask := &image.Uniform{C: color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: uint8(float64(0xff) * alpha)}}
-		draw.DrawMask(base, clippedBounds, tex, srcPt, mask, srcPt, draw.Over)
-	}
+	draw.Draw(base, clippedBounds, tex, srcPt, draw.Over)
 }
 
 func drawText(c fyne.Canvas, text *canvas.Text, pos fyne.Position, base *image.NRGBA, clip image.Rectangle) {
@@ -145,11 +139,11 @@ func drawText(c fyne.Canvas, text *canvas.Text, pos fyne.Position, base *image.N
 
 	color := text.Color
 	if color == nil {
-		color = theme.Color(theme.ColorNameForeground)
+		color = theme.ForegroundColor()
 	}
 
-	face := painter.CachedFontFace(text.TextStyle, text.FontSource, text)
-	painter.DrawString(txtImg, text.Text, color, face.Fonts, text.TextSize, c.Scale(), text.TextStyle)
+	face := painter.CachedFontFace(text.TextStyle, text.TextSize*c.Scale(), 1)
+	painter.DrawString(txtImg, text.Text, color, face.Fonts, text.TextSize, c.Scale(), text.TextStyle.TabWidth)
 
 	size := text.Size()
 	offsetX := float32(0)
@@ -182,9 +176,9 @@ func drawRaster(c fyne.Canvas, rast *canvas.Raster, pos fyne.Position, base *ima
 
 	pix := rast.Generator(width, height)
 	if pix.Bounds().Bounds().Dx() != width || pix.Bounds().Dy() != height {
-		drawPixels(scaledX, scaledY, width, height, rast.ScaleMode, base, pix, clip, 1.0)
+		drawPixels(scaledX, scaledY, width, height, rast.ScaleMode, base, pix, clip)
 	} else {
-		drawTex(scaledX, scaledY, width, height, base, pix, clip, 1.0)
+		drawTex(scaledX, scaledY, width, height, base, pix, clip)
 	}
 }
 

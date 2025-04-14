@@ -1,4 +1,6 @@
-//go:build (android || ios || mobile) && (!wasm || !test_web_driver)
+//go:build (android || ios || mobile) && (!js || !wasm || !test_web_driver)
+// +build android ios mobile
+// +build !js !wasm !test_web_driver
 
 package gl
 
@@ -57,7 +59,7 @@ type (
 var compiled []Program // avoid multiple compilations with the re-used mobile GUI context
 var noBuffer = Buffer{}
 var noShader = Shader{}
-var textureFilterToGL = [...]int32{gl.Linear, gl.Nearest}
+var textureFilterToGL = []int32{gl.Linear, gl.Nearest}
 
 func (p *painter) glctx() gl.Context {
 	return p.contextProvider.Context().(gl.Context)

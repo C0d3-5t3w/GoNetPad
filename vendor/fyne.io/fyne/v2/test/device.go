@@ -28,10 +28,6 @@ func (d *device) SystemScaleForWindow(fyne.Window) float32 {
 	return 1
 }
 
-func (d *device) Locale() fyne.Locale {
-	return "en"
-}
-
 func (*device) IsBrowser() bool {
 	return runtime.GOARCH == "js" || runtime.GOOS == "js"
 }

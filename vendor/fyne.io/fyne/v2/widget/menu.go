@@ -16,7 +16,7 @@ type Menu struct {
 	BaseWidget
 	alignment     fyne.TextAlign
 	Items         []fyne.CanvasObject
-	OnDismiss     func() `json:"-"`
+	OnDismiss     func()
 	activeItem    *menuItem
 	customSized   bool
 	containsCheck bool
@@ -241,8 +241,9 @@ func (r *menuRenderer) Layout(s fyne.Size) {
 	scrollSize := boxSize
 	if c := fyne.CurrentApp().Driver().CanvasForObject(r.m.super()); c != nil {
 		ap := fyne.CurrentApp().Driver().AbsolutePositionForObject(r.m.super())
-		_, areaSize := c.InteractiveArea()
-		if ah := areaSize.Height - ap.Y; ah < boxSize.Height {
+		pos, size := c.InteractiveArea()
+		bottomPad := c.Size().Height - pos.Y - size.Height
+		if ah := c.Size().Height - bottomPad - ap.Y; ah < boxSize.Height {
 			scrollSize = fyne.NewSize(boxSize.Width, ah)
 		}
 	}
@@ -299,7 +300,7 @@ func (r *menuRenderer) layoutActiveChild() {
 				cp.X = c.Size().Width - absPos.X - childSize.Width
 			}
 		}
-		requiredHeight := childSize.Height - r.m.Theme().Size(theme.SizeNamePadding)
+		requiredHeight := childSize.Height - theme.Padding()
 		availableHeight := c.Size().Height - absPos.Y
 		missingHeight := requiredHeight - availableHeight
 		if missingHeight > 0 {
@@ -323,10 +324,7 @@ func newMenuBox(items []fyne.CanvasObject) *menuBox {
 }
 
 func (b *menuBox) CreateRenderer() fyne.WidgetRenderer {
-	th := b.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
-	background := canvas.NewRectangle(th.Color(theme.ColorNameMenuBackground, v))
+	background := canvas.NewRectangle(theme.MenuBackgroundColor())
 	cont := &fyne.Container{Layout: layout.NewVBoxLayout(), Objects: b.items}
 	return &menuBoxRenderer{
 		BaseRenderer: widget.NewBaseRenderer([]fyne.CanvasObject{background, cont}),
@@ -356,10 +354,7 @@ func (r *menuBoxRenderer) MinSize() fyne.Size {
 }
 
 func (r *menuBoxRenderer) Refresh() {
-	th := r.b.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
-	r.background.FillColor = th.Color(theme.ColorNameMenuBackground, v)
+	r.background.FillColor = theme.MenuBackgroundColor()
 	r.background.Refresh()
 	canvas.Refresh(r.b)
 }

@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file.
 
 //go:build (!cgo || (!darwin && !linux && !openbsd && !freebsd)) && !windows
+// +build !cgo !darwin,!linux,!openbsd,!freebsd
+// +build !windows
 
 package gl
 

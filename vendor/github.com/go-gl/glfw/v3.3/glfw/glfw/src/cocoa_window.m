@@ -309,15 +309,10 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
 - (void)windowDidChangeOcclusionState:(NSNotification* )notification
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1090
-    if ([window->ns.object respondsToSelector:@selector(occlusionState)])
-    {
-        if ([window->ns.object occlusionState] & NSWindowOcclusionStateVisible)
-            window->ns.occluded = GLFW_FALSE;
-        else
-            window->ns.occluded = GLFW_TRUE;
-    }
-#endif
+    if ([window->ns.object occlusionState] & NSWindowOcclusionStateVisible)
+        window->ns.occluded = GLFW_FALSE;
+    else
+        window->ns.occluded = GLFW_TRUE;
 }
 
 @end
@@ -1265,7 +1260,7 @@ void _glfwPlatformSetWindowMonitor(_GLFWwindow* window,
 
     if (window->monitor)
     {
-        styleMask &= ~(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable);
+        styleMask &= ~(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable);
         styleMask |= NSWindowStyleMaskBorderless;
     }
     else
@@ -1635,15 +1630,14 @@ const char* _glfwPlatformGetScancodeName(int scancode)
 {
     @autoreleasepool {
 
-    if (scancode < 0 || scancode > 0xff)
+    if (scancode < 0 || scancode > 0xff ||
+        _glfw.ns.keycodes[scancode] == GLFW_KEY_UNKNOWN)
     {
         _glfwInputError(GLFW_INVALID_VALUE, "Invalid scancode %i", scancode);
         return NULL;
     }
 
     const int key = _glfw.ns.keycodes[scancode];
-    if (key == GLFW_KEY_UNKNOWN)
-        return NULL;
 
     UInt32 deadKeyState = 0;
     UniChar characters[4];

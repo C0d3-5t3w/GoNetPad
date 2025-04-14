@@ -1,4 +1,4 @@
-//go:build !wasm
+// +build !js
 
 package glfw
 
@@ -11,39 +11,13 @@ const (
 	DepthBits   = Hint(glfw.DepthBits)
 	StencilBits = Hint(glfw.StencilBits)
 	Samples     = Hint(glfw.Samples)
-
-	Focused                = Hint(glfw.Focused)
-	Iconified              = Hint(glfw.Iconified)
-	Maximized              = Hint(glfw.Maximized)
-	Visible                = Hint(glfw.Visible)
-	Hovered                = Hint(glfw.Hovered)
-	Resizable              = Hint(glfw.Resizable)
-	Decorated              = Hint(glfw.Decorated)
-	Floating               = Hint(glfw.Floating)
-	AutoIconify            = Hint(glfw.AutoIconify)
-	CenterCursor           = Hint(glfw.CenterCursor)
-	TransparentFramebuffer = Hint(glfw.TransparentFramebuffer)
-	FocusOnShow            = Hint(glfw.FocusOnShow)
-	ScaleToMonitor         = Hint(glfw.ScaleToMonitor)
-
-	ClientAPI               = Hint(glfw.ClientAPI)
-	ContextVersionMajor     = Hint(glfw.ContextVersionMajor)
-	ContextVersionMinor     = Hint(glfw.ContextVersionMinor)
-	ContextRobustness       = Hint(glfw.ContextRobustness)
-	ContextReleaseBehavior  = Hint(glfw.ContextReleaseBehavior)
-	OpenGLForwardCompatible = Hint(glfw.OpenGLForwardCompatible)
-	OpenGLDebugContext      = Hint(glfw.OpenGLDebugContext)
-	OpenGLProfile           = Hint(glfw.OpenGLProfile)
+	Resizable   = Hint(glfw.Resizable)
 
 	// These hints used for WebGL contexts, ignored on desktop.
 	PremultipliedAlpha = noopHint
 	PreserveDrawingBuffer
 	PreferLowPowerToHighPerformance
 	FailIfMajorPerformanceCaveat
-)
-
-const (
-	NoAPI int = glfw.NoAPI
 )
 
 // noopHint is ignored.

@@ -1,4 +1,5 @@
 //go:build !no_native_menus
+// +build !no_native_menus
 
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
@@ -83,20 +84,9 @@ void handleException(const char* m, id e) {
     exceptionCallback([[NSString stringWithFormat:@"%s failed: %@", m, e] UTF8String]);
 }
 
-int replacedAbout = 0;
-
-const void* insertDarwinMenuItem(const void* m, const char* label, const char* keyEquivalent, unsigned int keyEquivalentModifierMask, int nextId, int index, bool isSeparator, const void *imageData, unsigned int imageDataLength) {
+const void* insertDarwinMenuItem(const void* m, const char* label, const char* keyEquivalent, unsigned int keyEquivalentModifierMask, int id, int index, bool isSeparator, const void *imageData, unsigned int imageDataLength) {
     NSMenu* menu = (NSMenu*)m;
     NSMenuItem* item;
-
-    if (strcmp(label, "About") == 0 && !replacedAbout) {
-        replacedAbout = 1;
-        item = [menu itemArray][0];
-        [item setAction:@selector(tapped:)];
-        [item setTarget:[FyneMenuHandler class]];
-        [item setTag:nextId+menuTagMin];
-        return item;
-    }
 
     if (isSeparator) {
         item = [NSMenuItem separatorItem];
@@ -109,7 +99,7 @@ const void* insertDarwinMenuItem(const void* m, const char* label, const char* k
             [item setKeyEquivalentModifierMask: keyEquivalentModifierMask];
         }
         [item setTarget:[FyneMenuHandler class]];
-        [item setTag:nextId+menuTagMin];
+        [item setTag:id+menuTagMin];
         if (imageData) {
         char *x = (char *)imageData;
             NSData *data = [[NSData alloc] initWithBytes: imageData length: imageDataLength];

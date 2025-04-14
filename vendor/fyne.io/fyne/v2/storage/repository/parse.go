@@ -40,12 +40,14 @@ func NewFileURI(path string) fyne.URI {
 // Since: 2.0
 func ParseURI(s string) (fyne.URI, error) {
 	// Extract the scheme.
-	scheme, _, ok := strings.Cut(s, ":")
-	if !ok {
+	colonIndex := strings.IndexByte(s, ':')
+	if colonIndex <= 0 {
 		return nil, errors.New("invalid URI, scheme must be present")
 	}
 
-	if strings.EqualFold(scheme, "file") {
+	scheme := strings.ToLower(s[:colonIndex])
+
+	if scheme == "file" {
 		// Does this really deserve to be special? In principle, the
 		// purpose of this check is to pass it to NewFileURI, which
 		// allows platform path seps in the URI (against the RFC, but
@@ -65,7 +67,6 @@ func ParseURI(s string) (fyne.URI, error) {
 		return NewFileURI(path), nil
 	}
 
-	scheme = strings.ToLower(scheme)
 	repo, err := ForScheme(scheme)
 	if err == nil {
 		// If the repository registered for this scheme implements a parser

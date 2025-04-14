@@ -1,9 +1,10 @@
 package widget
 
 import (
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/internal/repository/mime"
 	"fyne.io/fyne/v2/internal/widget"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
@@ -43,10 +44,9 @@ func (i *FileIcon) SetURI(uri fyne.URI) {
 	i.Refresh()
 }
 
-// must be called with i.propertyLock RLocked
 func (i *FileIcon) setURI(uri fyne.URI) {
 	if uri == nil {
-		i.resource = i.Theme().Icon(theme.IconNameFile)
+		i.resource = theme.FileIcon()
 		return
 	}
 
@@ -63,20 +63,22 @@ func (i *FileIcon) MinSize() fyne.Size {
 
 // CreateRenderer is a private method to Fyne which links this widget to its renderer
 func (i *FileIcon) CreateRenderer() fyne.WidgetRenderer {
-	th := i.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
 	i.ExtendBaseWidget(i)
+	i.propertyLock.Lock()
 	i.setURI(i.URI)
+	i.propertyLock.Unlock()
+
+	i.propertyLock.RLock()
+	defer i.propertyLock.RUnlock()
 
 	// TODO remove background when `SetSelected` is gone.
-	background := canvas.NewRectangle(th.Color(theme.ColorNameSelection, v))
+	background := canvas.NewRectangle(theme.SelectionColor())
 	background.Hide()
 
 	s := &fileIconRenderer{file: i, background: background}
 	s.img = canvas.NewImageFromResource(s.file.resource)
 	s.img.FillMode = canvas.ImageFillContain
-	s.ext = canvas.NewText(s.file.extension, th.Color(theme.ColorNameBackground, v))
+	s.ext = canvas.NewText(s.file.extension, theme.BackgroundColor())
 	s.ext.Alignment = fyne.TextAlignCenter
 
 	s.SetObjects([]fyne.CanvasObject{s.background, s.img, s.ext})
@@ -92,30 +94,24 @@ func (i *FileIcon) SetSelected(selected bool) {
 	i.Refresh()
 }
 
-// must be called with i.propertyLock RLocked
 func (i *FileIcon) lookupIcon(uri fyne.URI) fyne.Resource {
-	if icon, ok := uri.(fyne.URIWithIcon); ok {
-		return icon.Icon()
-	}
 	if i.isDir(uri) {
 		return theme.FolderIcon()
 	}
 
-	th := i.Theme()
-	mainMimeType, _ := mime.Split(uri.MimeType())
-	switch mainMimeType {
+	switch splitMimeType(uri) {
 	case "application":
-		return th.Icon(theme.IconNameFileApplication)
+		return theme.FileApplicationIcon()
 	case "audio":
-		return th.Icon(theme.IconNameFileAudio)
+		return theme.FileAudioIcon()
 	case "image":
-		return th.Icon(theme.IconNameFileImage)
+		return theme.FileImageIcon()
 	case "text":
-		return th.Icon(theme.IconNameFileText)
+		return theme.FileTextIcon()
 	case "video":
-		return th.Icon(theme.IconNameFileVideo)
+		return theme.FileVideoIcon()
 	default:
-		return th.Icon(theme.IconNameFile)
+		return theme.FileIcon()
 	}
 }
 
@@ -144,8 +140,7 @@ type fileIconRenderer struct {
 }
 
 func (s *fileIconRenderer) MinSize() fyne.Size {
-	th := s.file.Theme()
-	return fyne.NewSquareSize(th.Size(theme.SizeNameInlineIcon))
+	return fyne.NewSquareSize(theme.IconInlineSize())
 }
 
 func (s *fileIconRenderer) Layout(size fyne.Size) {
@@ -172,35 +167,31 @@ func (s *fileIconRenderer) Layout(size fyne.Size) {
 }
 
 func (s *fileIconRenderer) Refresh() {
-	th := s.file.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
+	s.file.propertyLock.Lock()
 	s.file.setURI(s.file.URI)
+	s.file.propertyLock.Unlock()
+
+	s.file.propertyLock.RLock()
+	s.img.Resource = s.file.resource
+	s.ext.Text = s.file.extension
+	s.file.propertyLock.RUnlock()
 
 	if s.file.Selected {
 		s.background.Show()
-		s.ext.Color = th.Color(theme.ColorNameSelection, v)
+		s.ext.Color = theme.SelectionColor()
 		if _, ok := s.img.Resource.(*theme.InvertedThemedResource); !ok {
 			s.img.Resource = theme.NewInvertedThemedResource(s.img.Resource)
 		}
 	} else {
 		s.background.Hide()
-		s.ext.Color = th.Color(theme.ColorNameBackground, v)
+		s.ext.Color = theme.BackgroundColor()
 		if res, ok := s.img.Resource.(*theme.InvertedThemedResource); ok {
 			s.img.Resource = res.Original()
 		}
 	}
 
-	if s.img.Resource != s.file.resource {
-		s.img.Resource = s.file.resource
-		s.img.Refresh()
-	}
-	if s.ext.Text != s.file.extension {
-		s.ext.Text = s.file.extension
-		s.ext.Refresh()
-	}
-
 	canvas.Refresh(s.file.super())
+	canvas.Refresh(s.ext)
 }
 
 func trimmedExtension(uri fyne.URI) string {
@@ -209,4 +200,12 @@ func trimmedExtension(uri fyne.URI) string {
 		ext = ext[:5]
 	}
 	return ext
+}
+
+func splitMimeType(uri fyne.URI) string {
+	mimeTypeSplit := strings.Split(uri.MimeType(), "/")
+	if len(mimeTypeSplit) <= 1 {
+		return ""
+	}
+	return mimeTypeSplit[0]
 }

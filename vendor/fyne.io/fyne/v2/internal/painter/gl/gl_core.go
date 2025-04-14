@@ -1,11 +1,12 @@
-//go:build (!gles && !arm && !arm64 && !android && !ios && !mobile && !test_web_driver && !wasm) || (darwin && !mobile && !ios && !wasm && !test_web_driver)
+//go:build (!gles && !arm && !arm64 && !android && !ios && !mobile && !js && !test_web_driver && !wasm) || (darwin && !mobile && !ios && !js && !wasm && !test_web_driver)
+// +build !gles,!arm,!arm64,!android,!ios,!mobile,!js,!test_web_driver,!wasm darwin,!mobile,!ios,!js,!wasm,!test_web_driver
 
 package gl
 
 import (
 	"strings"
 
-	"github.com/go-gl/gl/v2.1/gl"
+	"github.com/go-gl/gl/v3.2-core/gl"
 
 	"fyne.io/fyne/v2"
 )
@@ -57,7 +58,7 @@ type (
 	Uniform int32
 )
 
-var textureFilterToGL = [...]int32{gl.LINEAR, gl.NEAREST, gl.LINEAR}
+var textureFilterToGL = []int32{gl.LINEAR, gl.NEAREST, gl.LINEAR}
 
 func (p *painter) Init() {
 	p.ctx = &coreContext{}

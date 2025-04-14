@@ -65,7 +65,7 @@ type Window interface {
 	SetOnClosed(func())
 
 	// SetCloseIntercept sets a function that runs instead of closing if defined.
-	// [Window.Close] should be called explicitly in the interceptor to close the window.
+	// Close() should be called explicitly in the interceptor to close the window.
 	//
 	// Since: 1.4
 	SetCloseIntercept(func())
@@ -101,7 +101,5 @@ type Window interface {
 	Canvas() Canvas
 
 	// Clipboard returns the system clipboard
-	//
-	// Deprecated: use App.Clipboard() instead.
 	Clipboard() Clipboard
 }

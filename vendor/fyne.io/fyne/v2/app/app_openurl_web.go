@@ -1,4 +1,5 @@
-//go:build !ci && !wasm && test_web_driver
+//go:build !ci && !js && !wasm && test_web_driver
+// +build !ci,!js,!wasm,test_web_driver
 
 package app
 
@@ -7,6 +8,6 @@ import (
 	"net/url"
 )
 
-func (a *fyneApp) OpenURL(url *url.URL) error {
+func (app *fyneApp) OpenURL(url *url.URL) error {
 	return errors.New("OpenURL is not supported with the test web driver.")
 }

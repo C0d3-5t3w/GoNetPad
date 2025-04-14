@@ -1,8 +1,9 @@
 //go:build hints
+// +build hints
 
 package theme
 
 var (
-	fallbackColor = colorLightError
+	fallbackColor = errorColor
 	fallbackIcon  = NewErrorThemedResource(errorIconRes)
 )

@@ -1,5 +1,3 @@
-//go:build !ios
-
 #import <Cocoa/Cocoa.h>
 #include "systray.h"
 

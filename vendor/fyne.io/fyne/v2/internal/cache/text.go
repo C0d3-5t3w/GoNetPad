@@ -1,14 +1,16 @@
 package cache
 
 import (
-	"image/color"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/internal/async"
 )
 
-var fontSizeCache async.Map[fontSizeEntry, *fontMetric]
+var (
+	fontSizeCache = map[fontSizeEntry]fontMetric{}
+	fontSizeLock  = sync.RWMutex{}
+)
 
 type fontMetric struct {
 	expiringCache
@@ -17,27 +19,17 @@ type fontMetric struct {
 }
 
 type fontSizeEntry struct {
-	Text   string
-	Size   float32
-	Style  fyne.TextStyle
-	Source string
-}
-
-type FontCacheEntry struct {
-	fontSizeEntry
-
-	Canvas fyne.Canvas
-	Color  color.Color
+	text  string
+	size  float32
+	style fyne.TextStyle
 }
 
 // GetFontMetrics looks up a calculated size and baseline required for the specified text parameters.
-func GetFontMetrics(text string, fontSize float32, style fyne.TextStyle, source fyne.Resource) (size fyne.Size, base float32) {
-	name := ""
-	if source != nil {
-		name = source.Name()
-	}
-	ent := fontSizeEntry{text, fontSize, style, name}
-	ret, ok := fontSizeCache.Load(ent)
+func GetFontMetrics(text string, fontSize float32, style fyne.TextStyle) (size fyne.Size, base float32) {
+	ent := fontSizeEntry{text, fontSize, style}
+	fontSizeLock.RLock()
+	ret, ok := fontSizeCache[ent]
+	fontSizeLock.RUnlock()
 	if !ok {
 		return fyne.Size{Width: 0, Height: 0}, 0
 	}
@@ -46,23 +38,29 @@ func GetFontMetrics(text string, fontSize float32, style fyne.TextStyle, source 
 }
 
 // SetFontMetrics stores a calculated font size and baseline for parameters that were missing from the cache.
-func SetFontMetrics(text string, fontSize float32, style fyne.TextStyle, source fyne.Resource, size fyne.Size, base float32) {
-	name := ""
-	if source != nil {
-		name = source.Name()
-	}
-	ent := fontSizeEntry{text, fontSize, style, name}
-	metric := &fontMetric{size: size, baseLine: base}
+func SetFontMetrics(text string, fontSize float32, style fyne.TextStyle, size fyne.Size, base float32) {
+	ent := fontSizeEntry{text, fontSize, style}
+	metric := fontMetric{size: size, baseLine: base}
 	metric.setAlive()
-	fontSizeCache.Store(ent, metric)
+	fontSizeLock.Lock()
+	fontSizeCache[ent] = metric
+	fontSizeLock.Unlock()
 }
 
 // destroyExpiredFontMetrics destroys expired fontSizeCache entries
 func destroyExpiredFontMetrics(now time.Time) {
-	fontSizeCache.Range(func(k fontSizeEntry, v *fontMetric) bool {
+	expiredObjs := make([]fontSizeEntry, 0, 50)
+	fontSizeLock.RLock()
+	for k, v := range fontSizeCache {
 		if v.isExpired(now) {
-			fontSizeCache.Delete(k)
+			expiredObjs = append(expiredObjs, k)
 		}
-		return true
-	})
+	}
+	fontSizeLock.RUnlock()
+
+	fontSizeLock.Lock()
+	for _, k := range expiredObjs {
+		delete(fontSizeCache, k)
+	}
+	fontSizeLock.Unlock()
 }

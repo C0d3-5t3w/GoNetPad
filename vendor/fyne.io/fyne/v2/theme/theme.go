@@ -2,37 +2,31 @@
 package theme // import "fyne.io/fyne/v2/theme"
 
 import (
-	"bytes"
 	"image/color"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"fyne.io/fyne/v2"
-	internalApp "fyne.io/fyne/v2/internal/app"
-	"fyne.io/fyne/v2/internal/cache"
-	internaltheme "fyne.io/fyne/v2/internal/theme"
 )
 
-// Keep in mind to add new constants to the tests at test/theme.go.
 const (
-	// VariantDark is the version of a theme that satisfies a user preference for a dark look.
+	// VariantDark is the version of a theme that satisfies a user preference for a light look.
 	//
 	// Since: 2.0
-	VariantDark = internaltheme.VariantDark
+	VariantDark fyne.ThemeVariant = 0
 
-	// VariantLight is the version of a theme that satisfies a user preference for a light look.
+	// VariantLight is the version of a theme that satisfies a user preference for a dark look.
 	//
 	// Since: 2.0
-	VariantLight = internaltheme.VariantLight
+	VariantLight fyne.ThemeVariant = 1
+
+	// potential for adding theme types such as high visibility or monochrome...
+	variantNameUserPreference fyne.ThemeVariant = 2 // locally used in builtinTheme for backward compatibility
 )
-
-var defaultTheme, systemTheme fyne.Theme
 
 // DarkTheme defines the built-in dark theme colors and sizes.
 //
 // Deprecated: This method ignores user preference and should not be used, it will be removed in v3.0.
-// If developers want to ignore user preference for theme variant they can set a custom theme.
 func DarkTheme() fyne.Theme {
 	theme := &builtinTheme{variant: VariantDark}
 
@@ -48,24 +42,22 @@ func DefaultTheme() fyne.Theme {
 		defaultTheme = setupDefaultTheme()
 	}
 
-	// check system too
-	if systemTheme != nil {
-		return systemTheme
-	}
-
 	return defaultTheme
 }
 
 // LightTheme defines the built-in light theme colors and sizes.
 //
 // Deprecated: This method ignores user preference and should not be used, it will be removed in v3.0.
-// If developers want to ignore user preference for theme variant they can set a custom theme.
 func LightTheme() fyne.Theme {
 	theme := &builtinTheme{variant: VariantLight}
 
 	theme.initFonts()
 	return theme
 }
+
+var (
+	defaultTheme fyne.Theme
+)
 
 type builtinTheme struct {
 	variant fyne.ThemeVariant
@@ -105,15 +97,13 @@ func (t *builtinTheme) initFonts() {
 }
 
 func (t *builtinTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
-	if t.variant != internaltheme.VariantNameUserPreference {
+	if t.variant != variantNameUserPreference {
 		v = t.variant
 	}
 
 	primary := fyne.CurrentApp().Settings().PrimaryColor()
 	if n == ColorNamePrimary || n == ColorNameHyperlink {
-		return internaltheme.PrimaryColorNamed(primary)
-	} else if n == ColorNameForegroundOnPrimary {
-		return internaltheme.ForegroundOnPrimaryColorNamed(primary)
+		return primaryColorNamed(primary)
 	} else if n == ColorNameFocus {
 		return focusColorNamed(primary)
 	} else if n == ColorNameSelection {
@@ -121,10 +111,10 @@ func (t *builtinTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.C
 	}
 
 	if v == VariantLight {
-		return lightPaletteColorNamed(n)
+		return lightPaletColorNamed(n)
 	}
 
-	return darkPaletteColorNamed(n)
+	return darkPaletColorNamed(n)
 }
 
 func (t *builtinTheme) Font(style fyne.TextStyle) fyne.Resource {
@@ -146,11 +136,42 @@ func (t *builtinTheme) Font(style fyne.TextStyle) fyne.Resource {
 	return t.regular
 }
 
-// Current returns the theme that is currently used for the running application.
-// It looks up based on user preferences and application configuration.
-//
-// Since: 2.5
-func Current() fyne.Theme {
+func (t *builtinTheme) Size(s fyne.ThemeSizeName) float32 {
+	switch s {
+	case SizeNameSeparatorThickness:
+		return 1
+	case SizeNameInlineIcon:
+		return 20
+	case SizeNameInnerPadding:
+		return 8
+	case SizeNameLineSpacing:
+		return 4
+	case SizeNamePadding:
+		return 4
+	case SizeNameScrollBar:
+		return 16
+	case SizeNameScrollBarSmall:
+		return 3
+	case SizeNameText:
+		return 14
+	case SizeNameHeadingText:
+		return 24
+	case SizeNameSubHeadingText:
+		return 18
+	case SizeNameCaptionText:
+		return 11
+	case SizeNameInputBorder:
+		return 1
+	case SizeNameInputRadius:
+		return 5
+	case SizeNameSelectionRadius:
+		return 3
+	default:
+		return 0
+	}
+}
+
+func current() fyne.Theme {
 	app := fyne.CurrentApp()
 	if app == nil {
 		return DarkTheme()
@@ -163,21 +184,9 @@ func Current() fyne.Theme {
 	return currentTheme
 }
 
-// CurrentForWidget returns the theme that is currently used for the specified widget.
-// It looks for widget overrides and falls back to the application's current theme.
-//
-// Since: 2.5
-func CurrentForWidget(w fyne.CanvasObject) fyne.Theme {
-	if custom := cache.WidgetTheme(w); custom != nil {
-		return custom
-	}
-
-	return Current()
-}
-
 func currentVariant() fyne.ThemeVariant {
-	if std, ok := Current().(*builtinTheme); ok {
-		if std.variant != internaltheme.VariantNameUserPreference {
+	if std, ok := current().(*builtinTheme); ok {
+		if std.variant != variantNameUserPreference {
 			return std.variant // override if using the old LightTheme() or DarkTheme() constructor
 		}
 	}
@@ -185,54 +194,46 @@ func currentVariant() fyne.ThemeVariant {
 	return fyne.CurrentApp().Settings().ThemeVariant()
 }
 
-func darkPaletteColorNamed(name fyne.ThemeColorName) color.Color {
+func darkPaletColorNamed(name fyne.ThemeColorName) color.Color {
 	switch name {
 	case ColorNameBackground:
-		return colorDarkBackground
+		return color.NRGBA{R: 0x17, G: 0x17, B: 0x18, A: 0xff}
 	case ColorNameButton:
-		return colorDarkButton
+		return color.NRGBA{R: 0x28, G: 0x29, B: 0x2e, A: 0xff}
 	case ColorNameDisabled:
-		return colorDarkDisabled
+		return color.NRGBA{R: 0x39, G: 0x39, B: 0x3a, A: 0xff}
 	case ColorNameDisabledButton:
-		return colorDarkDisabledButton
+		return color.NRGBA{R: 0x28, G: 0x29, B: 0x2e, A: 0xff}
 	case ColorNameError:
-		return colorDarkError
+		return errorColor
 	case ColorNameForeground:
-		return colorDarkForeground
-	case ColorNameForegroundOnError:
-		return colorDarkForegroundOnError
-	case ColorNameForegroundOnSuccess:
-		return colorDarkForegroundOnSuccess
-	case ColorNameForegroundOnWarning:
-		return colorDarkForegroundOnWarning
+		return color.NRGBA{R: 0xf3, G: 0xf3, B: 0xf3, A: 0xff}
 	case ColorNameHover:
-		return colorDarkHover
+		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0x0f}
 	case ColorNameHeaderBackground:
-		return colorDarkHeaderBackground
+		return color.NRGBA{R: 0x1b, G: 0x1b, B: 0x1b, A: 0xff}
 	case ColorNameInputBackground:
-		return colorDarkInputBackground
+		return color.NRGBA{R: 0x20, G: 0x20, B: 0x23, A: 0xff}
 	case ColorNameInputBorder:
-		return colorDarkInputBorder
+		return color.NRGBA{R: 0x39, G: 0x39, B: 0x3a, A: 0xff}
 	case ColorNameMenuBackground:
-		return colorDarkMenuBackground
+		return color.NRGBA{R: 0x28, G: 0x29, B: 0x2e, A: 0xff}
 	case ColorNameOverlayBackground:
-		return colorDarkOverlayBackground
+		return color.NRGBA{R: 0x18, G: 0x1d, B: 0x25, A: 0xff}
 	case ColorNamePlaceHolder:
-		return colorDarkPlaceholder
+		return color.NRGBA{R: 0xb2, G: 0xb2, B: 0xb2, A: 0xff}
 	case ColorNamePressed:
-		return colorDarkPressed
+		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0x66}
 	case ColorNameScrollBar:
-		return colorDarkScrollBar
-	case ColorNameScrollBarBackground:
-		return colorDarkScrollBarBackground
+		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0x99}
 	case ColorNameSeparator:
-		return colorDarkSeparator
+		return color.NRGBA{R: 0x0, G: 0x0, B: 0x0, A: 0xff}
 	case ColorNameShadow:
-		return colorDarkShadow
+		return color.NRGBA{A: 0x66}
 	case ColorNameSuccess:
-		return colorDarkSuccess
+		return successColor
 	case ColorNameWarning:
-		return colorDarkWarning
+		return warningColor
 	}
 
 	return color.Transparent
@@ -241,74 +242,66 @@ func darkPaletteColorNamed(name fyne.ThemeColorName) color.Color {
 func focusColorNamed(name string) color.NRGBA {
 	switch name {
 	case ColorRed:
-		return colorLightFocusRed
+		return color.NRGBA{R: 0xf4, G: 0x43, B: 0x36, A: 0x7f}
 	case ColorOrange:
-		return colorLightFocusOrange
+		return color.NRGBA{R: 0xff, G: 0x98, B: 0x00, A: 0x7f}
 	case ColorYellow:
-		return colorLightFocusYellow
+		return color.NRGBA{R: 0xff, G: 0xeb, B: 0x3b, A: 0x7f}
 	case ColorGreen:
-		return colorLightFocusGreen
+		return color.NRGBA{R: 0x8b, G: 0xc3, B: 0x4a, A: 0x7f}
 	case ColorPurple:
-		return colorLightFocusPurple
+		return color.NRGBA{R: 0x9c, G: 0x27, B: 0xb0, A: 0x7f}
 	case ColorBrown:
-		return colorLightFocusBrown
+		return color.NRGBA{R: 0x79, G: 0x55, B: 0x48, A: 0x7f}
 	case ColorGray:
-		return colorLightFocusGray
+		return color.NRGBA{R: 0x9e, G: 0x9e, B: 0x9e, A: 0x7f}
 	}
 
 	// We return the value for ColorBlue for every other value.
 	// There is no need to have it in the switch above.
-	return colorLightFocusBlue
+	return color.NRGBA{R: 0x00, G: 0x6C, B: 0xff, A: 0x2a}
 }
 
-func lightPaletteColorNamed(name fyne.ThemeColorName) color.Color {
+func lightPaletColorNamed(name fyne.ThemeColorName) color.Color {
 	switch name {
 	case ColorNameBackground:
-		return colorLightBackground
+		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 	case ColorNameButton:
-		return colorLightButton
+		return color.NRGBA{R: 0xf5, G: 0xf5, B: 0xf5, A: 0xff}
 	case ColorNameDisabled:
-		return colorLightDisabled
+		return color.NRGBA{R: 0xe3, G: 0xe3, B: 0xe3, A: 0xff}
 	case ColorNameDisabledButton:
-		return colorLightDisabledButton
+		return color.NRGBA{R: 0xf5, G: 0xf5, B: 0xf5, A: 0xff}
 	case ColorNameError:
-		return colorLightError
+		return errorColor
 	case ColorNameForeground:
-		return colorLightForeground
-	case ColorNameForegroundOnError:
-		return colorLightForegroundOnError
-	case ColorNameForegroundOnSuccess:
-		return colorLightForegroundOnSuccess
-	case ColorNameForegroundOnWarning:
-		return colorLightForegroundOnWarning
+		return color.NRGBA{R: 0x56, G: 0x56, B: 0x56, A: 0xff}
 	case ColorNameHover:
-		return colorLightHover
+		return color.NRGBA{A: 0x0f}
 	case ColorNameHeaderBackground:
-		return colorLightHeaderBackground
+		return color.NRGBA{R: 0xf9, G: 0xf9, B: 0xf9, A: 0xff}
 	case ColorNameInputBackground:
-		return colorLightInputBackground
+		return color.NRGBA{R: 0xf3, G: 0xf3, B: 0xf3, A: 0xff}
 	case ColorNameInputBorder:
-		return colorLightInputBorder
+		return color.NRGBA{R: 0xe3, G: 0xe3, B: 0xe3, A: 0xff}
 	case ColorNameMenuBackground:
-		return colorLightMenuBackground
+		return color.NRGBA{R: 0xf5, G: 0xf5, B: 0xf5, A: 0xff}
 	case ColorNameOverlayBackground:
-		return colorLightOverlayBackground
+		return color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 	case ColorNamePlaceHolder:
-		return colorLightPlaceholder
+		return color.NRGBA{R: 0x88, G: 0x88, B: 0x88, A: 0xff}
 	case ColorNamePressed:
-		return colorLightPressed
+		return color.NRGBA{A: 0x19}
 	case ColorNameScrollBar:
-		return colorLightScrollBar
-	case ColorNameScrollBarBackground:
-		return colorLightScrollBarBackground
+		return color.NRGBA{A: 0x99}
 	case ColorNameSeparator:
-		return colorLightSeparator
+		return color.NRGBA{R: 0xe3, G: 0xe3, B: 0xe3, A: 0xff}
 	case ColorNameShadow:
-		return colorLightShadow
+		return color.NRGBA{A: 0x33}
 	case ColorNameSuccess:
-		return colorLightSuccess
+		return successColor
 	case ColorNameWarning:
-		return colorLightWarning
+		return warningColor
 	}
 
 	return color.Transparent
@@ -326,55 +319,55 @@ func loadCustomFont(env, variant string, fallback fyne.Resource) fyne.Resource {
 	return res
 }
 
-func selectionColorNamed(name string) color.NRGBA {
+func primaryColorNamed(name string) color.NRGBA {
 	switch name {
 	case ColorRed:
-		return colorLightSelectionRed
+		return color.NRGBA{R: 0xf4, G: 0x43, B: 0x36, A: 0xff}
 	case ColorOrange:
-		return colorLightSelectionOrange
+		return color.NRGBA{R: 0xff, G: 0x98, B: 0x00, A: 0xff}
 	case ColorYellow:
-		return colorLightSelectionYellow
+		return color.NRGBA{R: 0xff, G: 0xeb, B: 0x3b, A: 0xff}
 	case ColorGreen:
-		return colorLightSelectionGreen
+		return color.NRGBA{R: 0x8b, G: 0xc3, B: 0x4a, A: 0xff}
 	case ColorPurple:
-		return colorLightSelectionPurple
+		return color.NRGBA{R: 0x9c, G: 0x27, B: 0xb0, A: 0xff}
 	case ColorBrown:
-		return colorLightSelectionBrown
+		return color.NRGBA{R: 0x79, G: 0x55, B: 0x48, A: 0xff}
 	case ColorGray:
-		return colorLightSelectionGray
+		return color.NRGBA{R: 0x9e, G: 0x9e, B: 0x9e, A: 0xff}
 	}
 
 	// We return the value for ColorBlue for every other value.
 	// There is no need to have it in the switch above.
-	return colorLightSelectionBlue
+	return color.NRGBA{R: 0x29, G: 0x6f, B: 0xf6, A: 0xff}
+}
+
+func selectionColorNamed(name string) color.NRGBA {
+	switch name {
+	case ColorRed:
+		return color.NRGBA{R: 0xf4, G: 0x43, B: 0x36, A: 0x3f}
+	case ColorOrange:
+		return color.NRGBA{R: 0xff, G: 0x98, B: 0x00, A: 0x3f}
+	case ColorYellow:
+		return color.NRGBA{R: 0xff, G: 0xeb, B: 0x3b, A: 0x3f}
+	case ColorGreen:
+		return color.NRGBA{R: 0x8b, G: 0xc3, B: 0x4a, A: 0x3f}
+	case ColorPurple:
+		return color.NRGBA{R: 0x9c, G: 0x27, B: 0xb0, A: 0x3f}
+	case ColorBrown:
+		return color.NRGBA{R: 0x79, G: 0x55, B: 0x48, A: 0x3f}
+	case ColorGray:
+		return color.NRGBA{R: 0x9e, G: 0x9e, B: 0x9e, A: 0x3f}
+	}
+
+	// We return the value for ColorBlue for every other value.
+	// There is no need to have it in the switch above.
+	return color.NRGBA{R: 0x00, G: 0x6C, B: 0xff, A: 0x40}
 }
 
 func setupDefaultTheme() fyne.Theme {
-	theme := &builtinTheme{variant: internaltheme.VariantNameUserPreference}
+	theme := &builtinTheme{variant: variantNameUserPreference}
+
 	theme.initFonts()
-
-	systemTheme = setupSystemTheme(theme)
-
 	return theme
-}
-
-func setupSystemTheme(fallback fyne.Theme) fyne.Theme {
-	root := internalApp.RootConfigDir()
-
-	path := filepath.Join(root, "theme.json")
-	data, err := fyne.LoadResourceFromPath(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fyne.LogError("Failed to load user theme file: "+path, err)
-		}
-		return nil
-	}
-	if data != nil && data.Content() != nil {
-		th, err := fromJSONWithFallback(bytes.NewReader(data.Content()), fallback)
-		if err == nil {
-			return th
-		}
-		fyne.LogError("Failed to parse user theme file: "+path, err)
-	}
-	return nil
 }

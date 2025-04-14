@@ -1,4 +1,5 @@
 //go:build android
+// +build android
 
 package mobile
 

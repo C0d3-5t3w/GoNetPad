@@ -70,43 +70,37 @@ type shadowRenderer struct {
 
 func (r *shadowRenderer) Layout(size fyne.Size) {
 	depth := float32(r.s.level)
-	sideOff, topOff := float32(0.0), float32(0.0)
-	if r.s.typ == ShadowAround {
-		sideOff = depth * 0.2
-		topOff = sideOff * 2
-	}
-
 	if r.tl != nil {
 		r.tl.Resize(fyne.NewSize(depth, depth))
-		r.tl.Move(fyne.NewPos(-depth+sideOff, -depth+topOff))
+		r.tl.Move(fyne.NewPos(-depth, -depth))
 	}
 	if r.t != nil {
-		r.t.Resize(fyne.NewSize(size.Width-sideOff*2, depth))
-		r.t.Move(fyne.NewPos(sideOff, -depth+topOff))
+		r.t.Resize(fyne.NewSize(size.Width, depth))
+		r.t.Move(fyne.NewPos(0, -depth))
 	}
 	if r.tr != nil {
 		r.tr.Resize(fyne.NewSize(depth, depth))
-		r.tr.Move(fyne.NewPos(size.Width-sideOff, -depth+topOff))
+		r.tr.Move(fyne.NewPos(size.Width, -depth))
 	}
 	if r.r != nil {
-		r.r.Resize(fyne.NewSize(depth, size.Height-topOff))
-		r.r.Move(fyne.NewPos(size.Width-sideOff, topOff))
+		r.r.Resize(fyne.NewSize(depth, size.Height))
+		r.r.Move(fyne.NewPos(size.Width, 0))
 	}
 	if r.br != nil {
 		r.br.Resize(fyne.NewSize(depth, depth))
-		r.br.Move(fyne.NewPos(size.Width-sideOff, size.Height))
+		r.br.Move(fyne.NewPos(size.Width, size.Height))
 	}
 	if r.b != nil {
-		r.b.Resize(fyne.NewSize(size.Width-sideOff*2, depth))
-		r.b.Move(fyne.NewPos(sideOff, size.Height))
+		r.b.Resize(fyne.NewSize(size.Width, depth))
+		r.b.Move(fyne.NewPos(0, size.Height))
 	}
 	if r.bl != nil {
 		r.bl.Resize(fyne.NewSize(depth, depth))
-		r.bl.Move(fyne.NewPos(-depth+sideOff, size.Height))
+		r.bl.Move(fyne.NewPos(-depth, size.Height))
 	}
 	if r.l != nil {
-		r.l.Resize(fyne.NewSize(depth, size.Height-topOff))
-		r.l.Move(fyne.NewPos(-depth+sideOff, topOff))
+		r.l.Resize(fyne.NewSize(depth, size.Height))
+		r.l.Move(fyne.NewPos(-depth, 0))
 	}
 }
 
@@ -121,83 +115,75 @@ func (r *shadowRenderer) Refresh() {
 }
 
 func (r *shadowRenderer) createShadows() {
-	th := theme.CurrentForWidget(r.s)
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-	fg := th.Color(theme.ColorNameShadow, v)
-
 	switch r.s.typ {
 	case ShadowLeft:
-		r.l = canvas.NewHorizontalGradient(color.Transparent, fg)
+		r.l = canvas.NewHorizontalGradient(color.Transparent, theme.ShadowColor())
 		r.SetObjects([]fyne.CanvasObject{r.l})
 	case ShadowRight:
-		r.r = canvas.NewHorizontalGradient(fg, color.Transparent)
+		r.r = canvas.NewHorizontalGradient(theme.ShadowColor(), color.Transparent)
 		r.SetObjects([]fyne.CanvasObject{r.r})
 	case ShadowBottom:
-		r.b = canvas.NewVerticalGradient(fg, color.Transparent)
+		r.b = canvas.NewVerticalGradient(theme.ShadowColor(), color.Transparent)
 		r.SetObjects([]fyne.CanvasObject{r.b})
 	case ShadowTop:
-		r.t = canvas.NewVerticalGradient(color.Transparent, fg)
+		r.t = canvas.NewVerticalGradient(color.Transparent, theme.ShadowColor())
 		r.SetObjects([]fyne.CanvasObject{r.t})
 	case ShadowAround:
-		r.tl = canvas.NewRadialGradient(fg, color.Transparent)
+		r.tl = canvas.NewRadialGradient(theme.ShadowColor(), color.Transparent)
 		r.tl.CenterOffsetX = 0.5
 		r.tl.CenterOffsetY = 0.5
-		r.t = canvas.NewVerticalGradient(color.Transparent, fg)
-		r.tr = canvas.NewRadialGradient(fg, color.Transparent)
+		r.t = canvas.NewVerticalGradient(color.Transparent, theme.ShadowColor())
+		r.tr = canvas.NewRadialGradient(theme.ShadowColor(), color.Transparent)
 		r.tr.CenterOffsetX = -0.5
 		r.tr.CenterOffsetY = 0.5
-		r.r = canvas.NewHorizontalGradient(fg, color.Transparent)
-		r.br = canvas.NewRadialGradient(fg, color.Transparent)
+		r.r = canvas.NewHorizontalGradient(theme.ShadowColor(), color.Transparent)
+		r.br = canvas.NewRadialGradient(theme.ShadowColor(), color.Transparent)
 		r.br.CenterOffsetX = -0.5
 		r.br.CenterOffsetY = -0.5
-		r.b = canvas.NewVerticalGradient(fg, color.Transparent)
-		r.bl = canvas.NewRadialGradient(fg, color.Transparent)
+		r.b = canvas.NewVerticalGradient(theme.ShadowColor(), color.Transparent)
+		r.bl = canvas.NewRadialGradient(theme.ShadowColor(), color.Transparent)
 		r.bl.CenterOffsetX = 0.5
 		r.bl.CenterOffsetY = -0.5
-		r.l = canvas.NewHorizontalGradient(color.Transparent, fg)
+		r.l = canvas.NewHorizontalGradient(color.Transparent, theme.ShadowColor())
 		r.SetObjects([]fyne.CanvasObject{r.tl, r.t, r.tr, r.r, r.br, r.b, r.bl, r.l})
 	}
 }
 
 func (r *shadowRenderer) refreshShadows() {
-	th := theme.CurrentForWidget(r.s)
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-	fg := th.Color(theme.ColorNameShadow, v)
+	updateShadowEnd(r.l)
+	updateShadowStart(r.r)
+	updateShadowStart(r.b)
+	updateShadowEnd(r.t)
 
-	updateShadowEnd(r.l, fg)
-	updateShadowStart(r.r, fg)
-	updateShadowStart(r.b, fg)
-	updateShadowEnd(r.t, fg)
-
-	updateShadowRadial(r.tl, fg)
-	updateShadowRadial(r.tr, fg)
-	updateShadowRadial(r.bl, fg)
-	updateShadowRadial(r.br, fg)
+	updateShadowRadial(r.tl)
+	updateShadowRadial(r.tr)
+	updateShadowRadial(r.bl)
+	updateShadowRadial(r.br)
 }
 
-func updateShadowEnd(g *canvas.LinearGradient, fg color.Color) {
+func updateShadowEnd(g *canvas.LinearGradient) {
 	if g == nil {
 		return
 	}
 
-	g.EndColor = fg
+	g.EndColor = theme.ShadowColor()
 	g.Refresh()
 }
 
-func updateShadowRadial(g *canvas.RadialGradient, fg color.Color) {
+func updateShadowRadial(g *canvas.RadialGradient) {
 	if g == nil {
 		return
 	}
 
-	g.StartColor = fg
+	g.StartColor = theme.ShadowColor()
 	g.Refresh()
 }
 
-func updateShadowStart(g *canvas.LinearGradient, fg color.Color) {
+func updateShadowStart(g *canvas.LinearGradient) {
 	if g == nil {
 		return
 	}
 
-	g.StartColor = fg
+	g.StartColor = theme.ShadowColor()
 	g.Refresh()
 }

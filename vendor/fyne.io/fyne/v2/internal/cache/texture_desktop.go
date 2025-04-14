@@ -1,4 +1,5 @@
-//go:build !android && !ios && !mobile && !wasm && !test_web_driver
+//go:build !android && !ios && !mobile && !js && !wasm && !test_web_driver
+// +build !android,!ios,!mobile,!js,!wasm,!test_web_driver
 
 package cache
 
@@ -10,9 +11,7 @@ var NoTexture = TextureType(0)
 
 type textureInfo struct {
 	textureCacheBase
-
-	texture  TextureType
-	textFree func()
+	texture TextureType
 }
 
 // IsValid will return true if the passed texture is potentially a texture

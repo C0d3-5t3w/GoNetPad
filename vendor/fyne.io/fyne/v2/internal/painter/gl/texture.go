@@ -1,7 +1,6 @@
 package gl
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -13,8 +12,6 @@ import (
 	paint "fyne.io/fyne/v2/internal/painter"
 	"fyne.io/fyne/v2/theme"
 )
-
-const floatEqualityThreshold = 1e-9
 
 var noTexture = Texture(cache.NoTexture)
 
@@ -33,30 +30,6 @@ func (p *painter) freeTexture(obj fyne.CanvasObject) {
 }
 
 func (p *painter) getTexture(object fyne.CanvasObject, creator func(canvasObject fyne.CanvasObject) Texture) (Texture, error) {
-	if t, ok := object.(*canvas.Text); ok {
-		custom := ""
-		if t.FontSource != nil {
-			custom = t.FontSource.Name()
-		}
-		ent := cache.FontCacheEntry{Color: t.Color, Canvas: p.canvas}
-		ent.Text = t.Text
-		ent.Size = t.TextSize
-		ent.Style = t.TextStyle
-		ent.Source = custom
-
-		texture, ok := cache.GetTextTexture(ent)
-
-		if !ok {
-			tex := creator(object)
-			texture = cache.TextureType(tex)
-			cache.SetTextTexture(ent, texture, p.canvas, func() {
-				p.ctx.DeleteTexture(tex)
-			})
-		}
-
-		return Texture(texture), nil
-	}
-
 	texture, ok := cache.GetTexture(object)
 
 	if !ok {
@@ -64,7 +37,7 @@ func (p *painter) getTexture(object fyne.CanvasObject, creator func(canvasObject
 		cache.SetTexture(object, texture, p.canvas)
 	}
 	if !cache.IsValid(texture) {
-		return noTexture, errors.New("no texture available")
+		return noTexture, fmt.Errorf("no texture available")
 	}
 	return Texture(texture), nil
 }
@@ -111,6 +84,13 @@ func (p *painter) imgToTexture(img image.Image, textureFilter canvas.ImageScale)
 	}
 }
 
+func (p *painter) newGlCircleTexture(obj fyne.CanvasObject) Texture {
+	circle := obj.(*canvas.Circle)
+	raw := paint.DrawCircle(circle, paint.VectorPad(circle), p.textureScale)
+
+	return p.imgToTexture(raw, canvas.ImageScaleSmooth)
+}
+
 func (p *painter) newGlImageTexture(obj fyne.CanvasObject) Texture {
 	img := obj.(*canvas.Image)
 
@@ -130,10 +110,10 @@ func (p *painter) newGlLinearGradientTexture(obj fyne.CanvasObject) Texture {
 
 	w := gradient.Size().Width
 	h := gradient.Size().Height
-	switch a := gradient.Angle; {
-	case almostEqual(a, 90), almostEqual(a, 270):
+	switch gradient.Angle {
+	case 90, 270:
 		h = 1
-	case almostEqual(a, 0), almostEqual(a, 180):
+	case 0, 180:
 		w = 1
 	}
 	width := p.textureScale(w)
@@ -164,7 +144,7 @@ func (p *painter) newGlTextTexture(obj fyne.CanvasObject) Texture {
 	text := obj.(*canvas.Text)
 	color := text.Color
 	if color == nil {
-		color = theme.Color(theme.ColorNameForeground)
+		color = theme.ForegroundColor()
 	}
 
 	bounds := text.MinSize()
@@ -172,8 +152,8 @@ func (p *painter) newGlTextTexture(obj fyne.CanvasObject) Texture {
 	height := int(math.Ceil(float64(p.textureScale(bounds.Height))))
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
 
-	face := paint.CachedFontFace(text.TextStyle, text.FontSource, text)
-	paint.DrawString(img, text.Text, color, face.Fonts, text.TextSize, p.pixScale, text.TextStyle)
+	face := paint.CachedFontFace(text.TextStyle, text.TextSize*p.canvas.Scale(), p.texScale)
+	paint.DrawString(img, text.Text, color, face.Fonts, text.TextSize, p.pixScale, text.TextStyle.TabWidth)
 	return p.imgToTexture(img, canvas.ImageScaleSmooth)
 }
 
@@ -203,8 +183,4 @@ func (p *painter) textureScale(v float32) float32 {
 	}
 
 	return float32(math.Round(float64(v * p.pixScale)))
-}
-
-func almostEqual(a, b float64) bool {
-	return math.Abs(a-b) < floatEqualityThreshold
 }

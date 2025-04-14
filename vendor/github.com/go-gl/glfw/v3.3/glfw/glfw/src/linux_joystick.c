@@ -157,7 +157,7 @@ static GLFWbool openJoystickDevice(const char* path)
     }
 
     // Ensure this device supports the events expected of a joystick
-    if (!isBitSet(EV_ABS, evBits))
+    if (!isBitSet(EV_KEY, evBits) || !isBitSet(EV_ABS, evBits))
     {
         close(linjs.fd);
         return GLFW_FALSE;
@@ -283,8 +283,7 @@ GLFWbool _glfwInitJoysticksLinux(void)
 
     // Continue without device connection notifications if inotify fails
 
-    _glfw.linjs.regexCompiled = (regcomp(&_glfw.linjs.regex, "^event[0-9]\\+$", 0) == 0);
-    if (!_glfw.linjs.regexCompiled)
+    if (regcomp(&_glfw.linjs.regex, "^event[0-9]\\+$", 0) != 0)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR, "Linux: Failed to compile regex");
         return GLFW_FALSE;
@@ -334,6 +333,8 @@ void _glfwTerminateJoysticksLinux(void)
             closeJoystick(js);
     }
 
+    regfree(&_glfw.linjs.regex);
+
     if (_glfw.linjs.inotify > 0)
     {
         if (_glfw.linjs.watch > 0)
@@ -341,9 +342,6 @@ void _glfwTerminateJoysticksLinux(void)
 
         close(_glfw.linjs.inotify);
     }
-
-    if (_glfw.linjs.regexCompiled)
-        regfree(&_glfw.linjs.regex);
 }
 
 void _glfwDetectJoystickConnectionLinux(void)

@@ -20,11 +20,6 @@ type Split struct {
 	Horizontal bool
 	Leading    fyne.CanvasObject
 	Trailing   fyne.CanvasObject
-
-	// to communicate to the renderer that the next refresh
-	// is just an offset update (ie a resize and move only)
-	// cleared by renderer in Refresh()
-	offsetUpdated bool
 }
 
 // NewHSplit creates a horizontally arranged container with the specified leading and trailing elements.
@@ -81,7 +76,6 @@ func (s *Split) SetOffset(offset float64) {
 		return
 	}
 	s.Offset = offset
-	s.offsetUpdated = true
 	s.Refresh()
 }
 
@@ -106,7 +100,7 @@ func (r *splitContainerRenderer) Layout(size fyne.Size) {
 		leadingSize.Width = lw
 		leadingSize.Height = size.Height
 		dividerPos.X = lw
-		dividerSize.Width = dividerThickness(r.divider)
+		dividerSize.Width = dividerThickness()
 		dividerSize.Height = size.Height
 		trailingPos.X = lw + dividerSize.Width
 		trailingSize.Width = tw
@@ -118,7 +112,7 @@ func (r *splitContainerRenderer) Layout(size fyne.Size) {
 		leadingSize.Height = lh
 		dividerPos.Y = lh
 		dividerSize.Width = size.Width
-		dividerSize.Height = dividerThickness(r.divider)
+		dividerSize.Height = dividerThickness()
 		trailingPos.Y = lh + dividerSize.Height
 		trailingSize.Width = size.Width
 		trailingSize.Height = th
@@ -153,25 +147,15 @@ func (r *splitContainerRenderer) Objects() []fyne.CanvasObject {
 }
 
 func (r *splitContainerRenderer) Refresh() {
-	if r.split.offsetUpdated {
-		r.Layout(r.split.Size())
-		r.split.offsetUpdated = false
-		return
-	}
-
 	r.objects[0] = r.split.Leading
 	// [1] is divider which doesn't change
 	r.objects[2] = r.split.Trailing
 	r.Layout(r.split.Size())
-
-	r.split.Leading.Refresh()
-	r.divider.Refresh()
-	r.split.Trailing.Refresh()
 	canvas.Refresh(r.split)
 }
 
 func (r *splitContainerRenderer) computeSplitLengths(total, lMin, tMin float32) (float32, float32) {
-	available := float64(total - dividerThickness(r.divider))
+	available := float64(total - dividerThickness())
 	if available <= 0 {
 		return 0, 0
 	}
@@ -250,11 +234,8 @@ func newDivider(split *Split) *divider {
 // CreateRenderer is a private method to Fyne which links this widget to its renderer
 func (d *divider) CreateRenderer() fyne.WidgetRenderer {
 	d.ExtendBaseWidget(d)
-	th := d.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
-	background := canvas.NewRectangle(th.Color(theme.ColorNameShadow, v))
-	foreground := canvas.NewRectangle(th.Color(theme.ColorNameForeground, v))
+	background := canvas.NewRectangle(theme.ShadowColor())
+	foreground := canvas.NewRectangle(theme.ForegroundColor())
 	return &dividerRenderer{
 		divider:    d,
 		background: background,
@@ -286,12 +267,12 @@ func (d *divider) Dragged(e *fyne.DragEvent) {
 	x, y := d.currentDragPos.Components()
 	var offset, leadingRatio, trailingRatio float64
 	if d.split.Horizontal {
-		widthFree := float64(d.split.Size().Width - dividerThickness(d))
+		widthFree := float64(d.split.Size().Width - dividerThickness())
 		leadingRatio = float64(d.split.Leading.MinSize().Width) / widthFree
 		trailingRatio = 1. - (float64(d.split.Trailing.MinSize().Width) / widthFree)
 		offset = float64(x-d.startDragOff.X) / widthFree
 	} else {
-		heightFree := float64(d.split.Size().Height - dividerThickness(d))
+		heightFree := float64(d.split.Size().Height - dividerThickness())
 		leadingRatio = float64(d.split.Leading.MinSize().Height) / heightFree
 		trailingRatio = 1. - (float64(d.split.Trailing.MinSize().Height) / heightFree)
 		offset = float64(y-d.startDragOff.Y) / heightFree
@@ -334,15 +315,15 @@ func (r *dividerRenderer) Layout(size fyne.Size) {
 	r.background.Resize(size)
 	var x, y, w, h float32
 	if r.divider.split.Horizontal {
-		x = (dividerThickness(r.divider) - handleThickness(r.divider)) / 2
-		y = (size.Height - handleLength(r.divider)) / 2
-		w = handleThickness(r.divider)
-		h = handleLength(r.divider)
+		x = (dividerThickness() - handleThickness()) / 2
+		y = (size.Height - handleLength()) / 2
+		w = handleThickness()
+		h = handleLength()
 	} else {
-		x = (size.Width - handleLength(r.divider)) / 2
-		y = (dividerThickness(r.divider) - handleThickness(r.divider)) / 2
-		w = handleLength(r.divider)
-		h = handleThickness(r.divider)
+		x = (size.Width - handleLength()) / 2
+		y = (dividerThickness() - handleThickness()) / 2
+		w = handleLength()
+		h = handleThickness()
 	}
 	r.foreground.Move(fyne.NewPos(x, y))
 	r.foreground.Resize(fyne.NewSize(w, h))
@@ -350,9 +331,9 @@ func (r *dividerRenderer) Layout(size fyne.Size) {
 
 func (r *dividerRenderer) MinSize() fyne.Size {
 	if r.divider.split.Horizontal {
-		return fyne.NewSize(dividerThickness(r.divider), dividerLength(r.divider))
+		return fyne.NewSize(dividerThickness(), dividerLength())
 	}
-	return fyne.NewSize(dividerLength(r.divider), dividerThickness(r.divider))
+	return fyne.NewSize(dividerLength(), dividerThickness())
 }
 
 func (r *dividerRenderer) Objects() []fyne.CanvasObject {
@@ -360,45 +341,29 @@ func (r *dividerRenderer) Objects() []fyne.CanvasObject {
 }
 
 func (r *dividerRenderer) Refresh() {
-	th := r.divider.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
 	if r.divider.hovered {
-		r.background.FillColor = th.Color(theme.ColorNameHover, v)
+		r.background.FillColor = theme.HoverColor()
 	} else {
-		r.background.FillColor = th.Color(theme.ColorNameShadow, v)
+		r.background.FillColor = theme.ShadowColor()
 	}
 	r.background.Refresh()
-	r.foreground.FillColor = th.Color(theme.ColorNameForeground, v)
+	r.foreground.FillColor = theme.ForegroundColor()
 	r.foreground.Refresh()
 	r.Layout(r.divider.Size())
 }
 
-func dividerTheme(d *divider) fyne.Theme {
-	if d == nil {
-		return theme.Current()
-	}
-
-	return d.Theme()
+func dividerThickness() float32 {
+	return theme.Padding() * 2
 }
 
-func dividerThickness(d *divider) float32 {
-	th := dividerTheme(d)
-	return th.Size(theme.SizeNamePadding) * 2
+func dividerLength() float32 {
+	return theme.Padding() * 6
 }
 
-func dividerLength(d *divider) float32 {
-	th := dividerTheme(d)
-	return th.Size(theme.SizeNamePadding) * 6
+func handleThickness() float32 {
+	return theme.Padding() / 2
 }
 
-func handleThickness(d *divider) float32 {
-	th := dividerTheme(d)
-	return th.Size(theme.SizeNamePadding) / 2
-
-}
-
-func handleLength(d *divider) float32 {
-	th := dividerTheme(d)
-	return th.Size(theme.SizeNamePadding) * 4
+func handleLength() float32 {
+	return theme.Padding() * 4
 }

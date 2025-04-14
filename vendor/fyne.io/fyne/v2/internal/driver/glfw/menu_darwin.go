@@ -1,4 +1,5 @@
-//go:build darwin && !no_native_menus
+//go:build !no_native_menus && !js && !wasm && !test_web_driver
+// +build !no_native_menus,!js,!wasm,!test_web_driver
 
 package glfw
 
@@ -138,19 +139,15 @@ func exceptionCallback(e *C.char) {
 }
 
 func handleSpecialItems(w *window, menu *fyne.Menu, nextItemID int, addSeparator bool) (*fyne.Menu, int) {
-	menu = fyne.NewMenu(menu.Label, menu.Items...) // copy so we can manipulate
-	for i := 0; i < len(menu.Items); i++ {
-		item := menu.Items[i]
-		switch item.Label {
-		case "About", "Settings", "Settings…", "Preferences", "Preferences…":
+	for i, item := range menu.Items {
+		if item.Label == "Settings" || item.Label == "Settings…" || item.Label == "Preferences" || item.Label == "Preferences…" {
 			items := make([]*fyne.MenuItem, 0, len(menu.Items)-1)
 			items = append(items, menu.Items[:i]...)
 			items = append(items, menu.Items[i+1:]...)
 			menu, nextItemID = handleSpecialItems(w, fyne.NewMenu(menu.Label, items...), nextItemID, false)
-			i--
 
 			insertNativeMenuItem(C.darwinAppMenu(), item, nextItemID, 1)
-			if addSeparator && item.Label != "About" {
+			if addSeparator {
 				C.insertDarwinMenuItem(
 					C.darwinAppMenu(),
 					C.CString(""),
@@ -164,6 +161,7 @@ func handleSpecialItems(w *window, menu *fyne.Menu, nextItemID int, addSeparator
 				)
 			}
 			nextItemID = registerCallback(w, item, nextItemID)
+			break
 		}
 	}
 	return menu, nextItemID
@@ -179,13 +177,9 @@ func insertNativeMenuItem(nsMenu unsafe.Pointer, item *fyne.MenuItem, nextItemID
 			if _, isThemed := rsc.(*theme.ThemedResource); isThemed {
 				var r, g, b, a C.int
 				C.getTextColorRGBA(&r, &g, &b, &a)
-				content, err := svg.Colorize(rsc.Content(), color.NRGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)})
-				if err != nil {
-					fyne.LogError("", err)
-				}
 				rsc = &fyne.StaticResource{
 					StaticName:    rsc.Name(),
-					StaticContent: content,
+					StaticContent: svg.Colorize(rsc.Content(), color.NRGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: uint8(a)}),
 				}
 			}
 			size := int(C.menuFontSize())
@@ -250,7 +244,7 @@ func registerCallback(w *window, item *fyne.MenuItem, nextItemID int) int {
 		callbacks = append(callbacks, &menuCallbacks{
 			action: func() {
 				if item.Action != nil {
-					item.Action()
+					w.QueueEvent(item.Action)
 				}
 			},
 			enabled: func() bool {
@@ -267,6 +261,10 @@ func registerCallback(w *window, item *fyne.MenuItem, nextItemID int) int {
 
 func setExceptionCallback(cb func(string)) {
 	ecb = cb
+}
+
+func hasNativeMenu() bool {
+	return true
 }
 
 //export menuCallback

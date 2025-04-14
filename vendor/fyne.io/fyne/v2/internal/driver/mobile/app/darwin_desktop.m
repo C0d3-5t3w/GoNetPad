@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build darwin && !ios
+// +build darwin
+// +build !ios
 
 #include "_cgo_export.h"
 #include <pthread.h>
@@ -136,7 +137,7 @@ uint64 threadID() {
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
-	lifecycleDead();
+	lifecycleAlive();
 }
 
 - (BOOL)acceptsFirstResponder {

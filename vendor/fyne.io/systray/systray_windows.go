@@ -1,4 +1,5 @@
 //go:build windows
+// +build windows
 
 package systray
 
@@ -12,10 +13,10 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"unsafe"
 
+	"github.com/tevino/abool"
 	"golang.org/x/sys/windows"
 )
 
@@ -236,12 +237,12 @@ type winTray struct {
 	wmSystrayMessage,
 	wmTaskbarCreated uint32
 
-	initialized atomic.Bool
+	initialized *abool.AtomicBool
 }
 
 // isReady checks if the tray as already been initialized. It is not goroutine safe with in regard to the initialization function, but prevents a panic when functions are called too early.
 func (t *winTray) isReady() bool {
-	return t.initialized.Load()
+	return t.initialized.IsSet()
 }
 
 // Loads an image from file and shows it in tray.
@@ -289,7 +290,9 @@ func (t *winTray) setTooltip(src string) error {
 	return t.nid.modify()
 }
 
-var wt = winTray{}
+var wt = winTray{
+	initialized: abool.New(),
+}
 
 // WindowProc callback function that processes messages sent to a window.
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms633573(v=vs.85).aspx
@@ -892,7 +895,7 @@ func registerSystray() {
 		return
 	}
 
-	wt.initialized.Store(true)
+	wt.initialized.Set()
 	systrayReady()
 }
 

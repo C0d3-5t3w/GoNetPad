@@ -1,4 +1,5 @@
 //go:build android
+// +build android
 
 package mobile
 
@@ -8,11 +9,10 @@ package mobile
 #include <stdlib.h>
 #include <stdbool.h>
 
-bool deleteURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr);
 bool existsURI(uintptr_t jni_env, uintptr_t ctx, char* uriCstr);
 void* openStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr);
 char* readStream(uintptr_t jni_env, uintptr_t ctx, void* stream, int len, int* total);
-void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr, bool truncate);
+void* saveStream(uintptr_t jni_env, uintptr_t ctx, char* uriCstr);
 void writeStream(uintptr_t jni_env, uintptr_t ctx, void* stream, char* data, int len);
 void closeStream(uintptr_t jni_env, uintptr_t ctx, void* stream);
 */
@@ -25,7 +25,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/internal/driver/mobile/app"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/storage/repository"
 )
 
@@ -91,7 +90,7 @@ func nativeFileOpen(f *fileOpen) (io.ReadCloser, error) {
 
 	ret := openStream(f.uri.String())
 	if ret == nil {
-		return nil, storage.ErrNotExists
+		return nil, errors.New("resource not found at URI")
 	}
 
 	stream := &javaStream{}
@@ -99,13 +98,13 @@ func nativeFileOpen(f *fileOpen) (io.ReadCloser, error) {
 	return stream, nil
 }
 
-func saveStream(uri string, truncate bool) unsafe.Pointer {
+func saveStream(uri string) unsafe.Pointer {
 	uriStr := C.CString(uri)
 	defer C.free(unsafe.Pointer(uriStr))
 
 	var stream unsafe.Pointer
 	app.RunOnJVM(func(_, env, ctx uintptr) error {
-		streamPtr := C.saveStream(C.uintptr_t(env), C.uintptr_t(ctx), uriStr, C.bool(truncate))
+		streamPtr := C.saveStream(C.uintptr_t(env), C.uintptr_t(ctx), uriStr)
 		if streamPtr == C.NULL {
 			return os.ErrNotExist
 		}
@@ -116,14 +115,14 @@ func saveStream(uri string, truncate bool) unsafe.Pointer {
 	return stream
 }
 
-func nativeFileSave(f *fileSave, truncate bool) (io.WriteCloser, error) {
+func nativeFileSave(f *fileSave) (io.WriteCloser, error) {
 	if f.uri == nil || f.uri.String() == "" {
 		return nil, nil
 	}
 
-	ret := saveStream(f.uri.String(), truncate)
+	ret := saveStream(f.uri.String())
 	if ret == nil {
-		return nil, storage.ErrNotExists
+		return nil, errors.New("resource not found at URI")
 	}
 
 	stream := &javaStream{}
@@ -143,22 +142,6 @@ func (s *javaStream) Write(p []byte) (int, error) {
 	return len(p), err
 }
 
-func deleteURI(u fyne.URI) error {
-	uriStr := C.CString(u.String())
-	defer C.free(unsafe.Pointer(uriStr))
-
-	ok := false
-	app.RunOnJVM(func(_, env, ctx uintptr) error {
-		ok = bool(C.deleteURI(C.uintptr_t(env), C.uintptr_t(ctx), uriStr))
-		return nil
-	})
-
-	if !ok {
-		return errors.New("failed to delete file " + u.String())
-	}
-	return nil
-}
-
 func existsURI(uri fyne.URI) (bool, error) {
 	uriStr := C.CString(uri.String())
 	defer C.free(unsafe.Pointer(uriStr))
@@ -172,7 +155,7 @@ func existsURI(uri fyne.URI) (bool, error) {
 	return ok, nil
 }
 
-func registerRepository(d *driver) {
+func registerRepository(d *mobileDriver) {
 	repo := &mobileFileRepo{}
 	repository.Register("file", repo)
 	repository.Register("content", repo)

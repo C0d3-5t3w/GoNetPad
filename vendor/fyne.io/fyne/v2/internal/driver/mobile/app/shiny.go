@@ -3,13 +3,16 @@
 // license that can be found in the LICENSE file.
 
 //go:build windows
+// +build windows
 
 package app
 
-import "log"
+import (
+	"fmt"
+)
 
 func main(f func(a App)) {
-	log.Fatalln("Running mobile simulation mode does not currently work on Windows.")
+	fmt.Errorf("Running mobile simulation mode does not currently work on Windows.")
 }
 
 func GoBack() {

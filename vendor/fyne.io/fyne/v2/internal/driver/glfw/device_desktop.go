@@ -1,4 +1,5 @@
-//go:build !wasm
+//go:build !js && !wasm
+// +build !js,!wasm
 
 package glfw
 
@@ -22,12 +23,4 @@ func (*glDevice) SystemScaleForWindow(w fyne.Window) float32 {
 	}
 
 	return scaleAuto
-}
-
-func connectKeyboard(*glCanvas) {
-	// no-op, mobile web compatibility
-}
-
-func isMacOSRuntime() bool {
-	return runtime.GOOS == "darwin"
 }

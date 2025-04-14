@@ -1,4 +1,5 @@
 //go:build !windows && !android && !ios && !wasm && !js
+// +build !windows,!android,!ios,!wasm,!js
 
 package dialog
 
@@ -33,6 +34,14 @@ func isHidden(file fyne.URI) bool {
 	return name == "" || name[0] == '.'
 }
 
-func hideFile(_ string) error {
+func hideFile(filename string) error {
 	return nil
+}
+
+func fileOpenOSOverride(*FileDialog) bool {
+	return false
+}
+
+func fileSaveOSOverride(*FileDialog) bool {
+	return false
 }

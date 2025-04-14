@@ -2,10 +2,8 @@ package dialog
 
 import (
 	"path/filepath"
-	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -13,6 +11,7 @@ import (
 const (
 	fileIconSize       = 64
 	fileInlineIconSize = 24
+	fileTextSize       = 24
 	fileIconCellWidth  = fileIconSize * 1.25
 )
 
@@ -21,27 +20,20 @@ type fileDialogItem struct {
 	picker *fileDialog
 
 	name     string
-	id       int // id in the parent container
-	choose   func(id int)
-	open     func()
 	location fyne.URI
 	dir      bool
-
-	lastClick time.Time
 }
 
 func (i *fileDialogItem) CreateRenderer() fyne.WidgetRenderer {
 	text := widget.NewLabelWithStyle(i.name, fyne.TextAlignCenter, fyne.TextStyle{})
-	text.Truncation = fyne.TextTruncateEllipsis
-	text.Wrapping = fyne.TextWrapBreak
+	text.Wrapping = fyne.TextTruncate
 	icon := widget.NewFileIcon(i.location)
 
 	return &fileItemRenderer{
-		item:         i,
-		icon:         icon,
-		text:         text,
-		objects:      []fyne.CanvasObject{icon, text},
-		fileTextSize: widget.NewLabel("M\nM").MinSize().Height, // cache two-line label height,
+		item:    i,
+		icon:    icon,
+		text:    text,
+		objects: []fyne.CanvasObject{icon, text},
 	}
 }
 
@@ -50,28 +42,16 @@ func (i *fileDialogItem) setLocation(l fyne.URI, dir, up bool) {
 	i.location = l
 	i.name = l.Name()
 
-	if i.picker.view == GridView {
+	if i.picker.view == gridView {
 		ext := filepath.Ext(i.name[1:])
 		i.name = i.name[:len(i.name)-len(ext)]
 	}
 
 	if up {
-		i.name = "(" + lang.X("file.parent", "Parent") + ")"
+		i.name = "(Parent)"
 	}
 
 	i.Refresh()
-}
-
-func (i *fileDialogItem) Tapped(*fyne.PointEvent) {
-	if i.choose != nil {
-		i.choose(i.id)
-	}
-	now := time.Now()
-	if !i.dir && now.Sub(i.lastClick) < fyne.CurrentApp().Driver().DoubleTapDelay() && i.open != nil {
-		// It is a double click, so we ask the dialog to open
-		i.open()
-	}
-	i.lastClick = now
 }
 
 func (f *fileDialog) newFileItem(location fyne.URI, dir, up bool) *fileDialogItem {
@@ -82,13 +62,13 @@ func (f *fileDialog) newFileItem(location fyne.URI, dir, up bool) *fileDialogIte
 		dir:      dir,
 	}
 
-	if f.view == GridView {
+	if f.view == gridView {
 		ext := filepath.Ext(item.name[1:])
 		item.name = item.name[:len(item.name)-len(ext)]
 	}
 
 	if up {
-		item.name = "(" + lang.X("file.parent", "Parent") + ")"
+		item.name = "(Parent)"
 	}
 
 	item.ExtendBaseWidget(item)
@@ -96,52 +76,52 @@ func (f *fileDialog) newFileItem(location fyne.URI, dir, up bool) *fileDialogIte
 }
 
 type fileItemRenderer struct {
-	item         *fileDialogItem
-	fileTextSize float32
+	item *fileDialogItem
 
 	icon    *widget.FileIcon
 	text    *widget.Label
 	objects []fyne.CanvasObject
 }
 
-func (s *fileItemRenderer) Layout(size fyne.Size) {
-	if s.item.picker.view == GridView {
+func (s fileItemRenderer) Layout(size fyne.Size) {
+	if s.item.picker.view == gridView {
 		s.icon.Resize(fyne.NewSize(fileIconSize, fileIconSize))
 		s.icon.Move(fyne.NewPos((size.Width-fileIconSize)/2, 0))
 
 		s.text.Alignment = fyne.TextAlignCenter
-		s.text.Resize(fyne.NewSize(size.Width, s.fileTextSize))
-		s.text.Move(fyne.NewPos(0, size.Height-s.fileTextSize))
+		s.text.Resize(fyne.NewSize(size.Width, fileTextSize))
+		s.text.Move(fyne.NewPos(0, size.Height-s.text.MinSize().Height))
 	} else {
 		s.icon.Resize(fyne.NewSize(fileInlineIconSize, fileInlineIconSize))
 		s.icon.Move(fyne.NewPos(theme.Padding(), (size.Height-fileInlineIconSize)/2))
 
 		s.text.Alignment = fyne.TextAlignLeading
-		textMin := s.text.MinSize()
-		s.text.Resize(fyne.NewSize(size.Width, textMin.Height))
-		s.text.Move(fyne.NewPos(fileInlineIconSize, (size.Height-textMin.Height)/2))
+		s.text.Resize(fyne.NewSize(size.Width, fileTextSize))
+		s.text.Move(fyne.NewPos(fileInlineIconSize, (size.Height-s.text.MinSize().Height)/2))
 	}
+	s.text.Refresh()
 }
 
-func (s *fileItemRenderer) MinSize() fyne.Size {
-	if s.item.picker.view == GridView {
-		return fyne.NewSize(fileIconCellWidth, fileIconSize+s.fileTextSize)
+func (s fileItemRenderer) MinSize() fyne.Size {
+	var padding fyne.Size
+
+	if s.item.picker.view == gridView {
+		padding = fyne.NewSize(fileIconCellWidth-fileIconSize, theme.Padding())
+		return fyne.NewSize(fileIconSize, fileIconSize+fileTextSize).Add(padding)
 	}
 
-	textMin := s.text.MinSize()
-	return fyne.NewSize(fileInlineIconSize+textMin.Width+theme.Padding(), textMin.Height)
+	padding = fyne.NewSize(theme.Padding(), theme.Padding()*4)
+	return fyne.NewSize(fileInlineIconSize+s.text.MinSize().Width, fileTextSize).Add(padding)
 }
 
-func (s *fileItemRenderer) Refresh() {
-	s.fileTextSize = widget.NewLabel("M\nM").MinSize().Height // cache two-line label height
-
+func (s fileItemRenderer) Refresh() {
 	s.text.SetText(s.item.name)
 	s.icon.SetURI(s.item.location)
 }
 
-func (s *fileItemRenderer) Objects() []fyne.CanvasObject {
+func (s fileItemRenderer) Objects() []fyne.CanvasObject {
 	return s.objects
 }
 
-func (s *fileItemRenderer) Destroy() {
+func (s fileItemRenderer) Destroy() {
 }

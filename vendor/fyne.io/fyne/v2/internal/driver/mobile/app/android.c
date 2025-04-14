@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build android
+// +build android
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -67,14 +67,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 static int main_running = 0;
 
 // ensure we refresh context on resume in case something has changed...
-void onResume(ANativeActivity *activity) {
+void processOnResume(ANativeActivity *activity) {
 	JNIEnv* env = activity->env;
 	setCurrentContext(activity->vm, (*env)->NewGlobalRef(env, activity->clazz));
-}
 
-void onStart(ANativeActivity *activity) {}
-void onPause(ANativeActivity *activity) {}
-void onStop(ANativeActivity *activity) {}
+    onResume(activity);
+}
 
 // Entry point from our subclassed NativeActivity.
 //
@@ -100,21 +98,14 @@ void ANativeActivity_onCreate(ANativeActivity *activity, void* savedState, size_
 
 		setCurrentContext(activity->vm, (*env)->NewGlobalRef(env, activity->clazz));
 
-		jmethodID getfilesdir = find_method(env, current_class, "getFilesDir", "()Ljava/io/File;");
-		jobject filesdirfile = (jobject)(*env)->CallObjectMethod(env, activity->clazz, getfilesdir, NULL);
-		jclass file_class = (*env)->GetObjectClass(env, filesdirfile);
-		jmethodID getabsolutepath = find_method(env, file_class, "getAbsolutePath", "()Ljava/lang/String;");
-		jstring jpath = (jstring)(*env)->CallObjectMethod(env, filesdirfile, getabsolutepath, NULL);
-		const char* filesdir = (*env)->GetStringUTFChars(env, jpath, NULL);
-
 		// Set FILESDIR
-		if (setenv("FILESDIR", filesdir, 1) != 0) {
+		if (setenv("FILESDIR", activity->internalDataPath, 1) != 0) {
 			LOG_INFO("setenv(\"FILESDIR\", \"%s\", 1) failed: %d", activity->internalDataPath, errno);
 		}
 
 		// Set TMPDIR.
 		jmethodID gettmpdir = find_method(env, current_class, "getTmpdir", "()Ljava/lang/String;");
-		jpath = (jstring)(*env)->CallObjectMethod(env, activity->clazz, gettmpdir, NULL);
+		jstring jpath = (jstring)(*env)->CallObjectMethod(env, activity->clazz, gettmpdir, NULL);
 		const char* tmpdir = (*env)->GetStringUTFChars(env, jpath, NULL);
 		if (setenv("TMPDIR", tmpdir, 1) != 0) {
 			LOG_INFO("setenv(\"TMPDIR\", \"%s\", 1) failed: %d", tmpdir, errno);
@@ -136,7 +127,7 @@ void ANativeActivity_onCreate(ANativeActivity *activity, void* savedState, size_
 	// Note that onNativeWindowResized is not called on resize. Avoid it.
 	// https://code.google.com/p/android/issues/detail?id=180645
 	activity->callbacks->onStart = onStart;
-	activity->callbacks->onResume = onResume;
+	activity->callbacks->onResume = processOnResume;
 	activity->callbacks->onSaveInstanceState = onSaveInstanceState;
 	activity->callbacks->onPause = onPause;
 	activity->callbacks->onStop = onStop;

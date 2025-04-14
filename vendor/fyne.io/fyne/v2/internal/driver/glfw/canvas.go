@@ -6,10 +6,8 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/internal"
 	"fyne.io/fyne/v2/internal/app"
-	"fyne.io/fyne/v2/internal/build"
 	"fyne.io/fyne/v2/internal/driver"
 	"fyne.io/fyne/v2/internal/driver/common"
 	"fyne.io/fyne/v2/theme"
@@ -22,10 +20,10 @@ var _ fyne.Canvas = (*glCanvas)(nil)
 type glCanvas struct {
 	common.Canvas
 
-	content fyne.CanvasObject
-	menu    fyne.CanvasObject
-	padded  bool
-	size    fyne.Size
+	content       fyne.CanvasObject
+	menu          fyne.CanvasObject
+	padded, debug bool
+	size          fyne.Size
 
 	onTypedRune func(rune)
 	onTypedKey  func(*fyne.KeyEvent)
@@ -35,25 +33,30 @@ type glCanvas struct {
 
 	scale, detectedScale, texScale float32
 
-	context         driver.WithContext
-	webExtraWindows *container.MultipleWindows
+	context driver.WithContext
 }
 
 func (c *glCanvas) Capture() image.Image {
 	var img image.Image
-	c.context.(*window).RunWithContext(func() {
+	runOnDraw(c.context.(*window), func() {
 		img = c.Painter().Capture(c)
 	})
 	return img
 }
 
 func (c *glCanvas) Content() fyne.CanvasObject {
-	return c.content
+	c.RLock()
+	retval := c.content
+	c.RUnlock()
+	return retval
 }
 
 func (c *glCanvas) DismissMenu() bool {
-	if c.menu != nil && c.menu.(*MenuBar).IsActive() {
-		c.menu.(*MenuBar).Toggle()
+	c.RLock()
+	menu := c.menu
+	c.RUnlock()
+	if menu != nil && menu.(*MenuBar).IsActive() {
+		menu.(*MenuBar).Toggle()
 		return true
 	}
 	return false
@@ -64,6 +67,8 @@ func (c *glCanvas) InteractiveArea() (fyne.Position, fyne.Size) {
 }
 
 func (c *glCanvas) MinSize() fyne.Size {
+	c.RLock()
+	defer c.RUnlock()
 	return c.canvasSize(c.content.MinSize())
 }
 
@@ -88,7 +93,10 @@ func (c *glCanvas) Padded() bool {
 }
 
 func (c *glCanvas) PixelCoordinateForPosition(pos fyne.Position) (int, int) {
-	multiple := c.scale * c.texScale
+	c.RLock()
+	texScale := c.texScale
+	c.RUnlock()
+	multiple := c.Scale() * texScale
 	scaleInt := func(x float32) int {
 		return int(math.Round(float64(x * multiple)))
 	}
@@ -102,11 +110,10 @@ func (c *glCanvas) Resize(size fyne.Size) {
 	// This can easily be seen with fyne/cmd/hello and a scale == 1 as the text will happear blurry without the following line.
 	nearestSize := fyne.NewSize(float32(math.Ceil(float64(size.Width))), float32(math.Ceil(float64(size.Height))))
 
+	c.Lock()
 	c.size = nearestSize
+	c.Unlock()
 
-	if c.webExtraWindows != nil {
-		c.webExtraWindows.Resize(size)
-	}
 	for _, overlay := range c.Overlays().List() {
 		if p, ok := overlay.(*widget.PopUp); ok {
 			// TODO: remove this when #707 is being addressed.
@@ -117,11 +124,13 @@ func (c *glCanvas) Resize(size fyne.Size) {
 		}
 	}
 
+	c.RLock()
 	content := c.content
 	contentSize := c.contentSize(nearestSize)
 	contentPos := c.contentPos()
 	menu := c.menu
 	menuHeight := c.menuHeight()
+	c.RUnlock()
 
 	content.Resize(contentSize)
 	content.Move(contentPos)
@@ -133,16 +142,20 @@ func (c *glCanvas) Resize(size fyne.Size) {
 }
 
 func (c *glCanvas) Scale() float32 {
+	c.RLock()
+	defer c.RUnlock()
 	return c.scale
 }
 
 func (c *glCanvas) SetContent(content fyne.CanvasObject) {
 	content.Resize(content.MinSize()) // give it the space it wants then calculate the real min
 
+	c.Lock()
 	// the pass above makes some layouts wide enough to wrap, so we ask again what the true min is.
 	newSize := c.size.Max(c.canvasSize(content.MinSize()))
 
 	c.setContent(content)
+	c.Unlock()
 
 	c.Resize(newSize)
 	c.SetDirty()
@@ -165,40 +178,55 @@ func (c *glCanvas) SetOnTypedRune(typed func(rune)) {
 }
 
 func (c *glCanvas) SetPadded(padded bool) {
+	c.Lock()
+	content := c.content
 	c.padded = padded
+	pos := c.contentPos()
+	c.Unlock()
 
-	c.content.Move(c.contentPos())
+	content.Move(pos)
 }
 
 func (c *glCanvas) reloadScale() {
 	w := c.context.(*window)
+	w.viewLock.RLock()
 	windowVisible := w.visible
+	w.viewLock.RUnlock()
 	if !windowVisible {
 		return
 	}
 
+	c.Lock()
 	c.scale = w.calculatedScale()
+	c.Unlock()
 	c.SetDirty()
 
 	c.context.RescaleContext()
 }
 
 func (c *glCanvas) Size() fyne.Size {
+	c.RLock()
+	defer c.RUnlock()
 	return c.size
 }
 
 func (c *glCanvas) ToggleMenu() {
-	if c.menu != nil {
-		c.menu.(*MenuBar).Toggle()
+	c.RLock()
+	menu := c.menu
+	c.RUnlock()
+	if menu != nil {
+		menu.(*MenuBar).Toggle()
 	}
 }
 
 func (c *glCanvas) buildMenu(w *window, m *fyne.MainMenu) {
+	c.Lock()
+	defer c.Unlock()
 	c.setMenuOverlay(nil)
 	if m == nil {
 		return
 	}
-	if build.HasNativeMenu {
+	if hasNativeMenu() {
 		setupNativeMenu(w, m)
 	} else {
 		c.setMenuOverlay(buildMenuOverlay(m, w))
@@ -270,7 +298,7 @@ func (c *glCanvas) paint(size fyne.Size) {
 			}
 		}
 
-		if build.Mode == fyne.BuildDebug {
+		if c.debug {
 			c.DrawDebugOverlay(node.Obj(), pos, size)
 		}
 	}
@@ -296,17 +324,21 @@ func (c *glCanvas) setMenuOverlay(b fyne.CanvasObject) {
 }
 
 func (c *glCanvas) applyThemeOutOfTreeObjects() {
-	if c.menu != nil {
-		app.ApplyThemeTo(c.menu, c) // Ensure our menu gets the theme change message as it's out-of-tree
+	c.RLock()
+	menu := c.menu
+	padded := c.padded
+	c.RUnlock()
+	if menu != nil {
+		app.ApplyThemeTo(menu, c) // Ensure our menu gets the theme change message as it's out-of-tree
 	}
 
-	c.SetPadded(c.padded) // refresh the padding for potential theme differences
+	c.SetPadded(padded) // refresh the padding for potential theme differences
 }
 
 func newCanvas() *glCanvas {
 	c := &glCanvas{scale: 1.0, texScale: 1.0, padded: true}
-	connectKeyboard(c)
 	c.Initialize(c, c.overlayChanged)
-	c.setContent(&canvas.Rectangle{FillColor: theme.Color(theme.ColorNameBackground)})
+	c.setContent(&canvas.Rectangle{FillColor: theme.BackgroundColor()})
+	c.debug = fyne.CurrentApp().Settings().BuildType() == fyne.BuildDebug
 	return c
 }

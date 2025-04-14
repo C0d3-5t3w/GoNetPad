@@ -1,4 +1,5 @@
-//go:build (linux || freebsd || openbsd || netbsd) && !android
+//go:build linux || freebsd || openbsd || netbsd
+// +build linux freebsd openbsd netbsd
 
 //Note that you need to have github.com/knightpp/dbus-codegen-go installed from "custom" branch
 //go:generate dbus-codegen-go -prefix org.kde -package notifier -output internal/generated/notifier/status_notifier_item.go internal/StatusNotifierItem.xml
@@ -266,12 +267,10 @@ func stayRegistered() {
 		case sig := <-sc:
 			if sig == nil {
 				return // We get a nil signal when closing the window.
-			} else if len(sig.Body) < 3 {
-				return // malformed signal?
 			}
 
 			// sig.Body has the args, which are [name old_owner new_owner]
-			if s, ok := sig.Body[2].(string); ok && s != "" {
+			if sig.Body[2] != "" {
 				register()
 			}
 		case <-quitChan:
@@ -299,11 +298,7 @@ type tray struct {
 
 func (t *tray) createPropSpec() map[string]map[string]*prop.Prop {
 	t.lock.Lock()
-	defer t.lock.Unlock()
-	id := t.title
-	if id == "" {
-		id = fmt.Sprintf("systray_%d", os.Getpid())
-	}
+	t.lock.Unlock()
 	return map[string]map[string]*prop.Prop{
 		"org.kde.StatusNotifierItem": {
 			"Status": {
@@ -319,7 +314,7 @@ func (t *tray) createPropSpec() map[string]map[string]*prop.Prop {
 				Callback: nil,
 			},
 			"Id": {
-				Value:    id,
+				Value:    t.title,
 				Writable: false,
 				Emit:     prop.EmitTrue,
 				Callback: nil,

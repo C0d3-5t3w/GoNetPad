@@ -103,23 +103,17 @@ extern "C" {
    #undef GLFW_APIENTRY_DEFINED
   #endif
   #include <windows.h>
- #endif
-
- #if defined(GLFW_EXPOSE_NATIVE_COCOA) || defined(GLFW_EXPOSE_NATIVE_NSGL)
+ #elif defined(GLFW_EXPOSE_NATIVE_COCOA) || defined(GLFW_EXPOSE_NATIVE_NSGL)
   #if defined(__OBJC__)
    #import <Cocoa/Cocoa.h>
   #else
    #include <ApplicationServices/ApplicationServices.h>
    #include <objc/objc.h>
   #endif
- #endif
-
- #if defined(GLFW_EXPOSE_NATIVE_X11) || defined(GLFW_EXPOSE_NATIVE_GLX)
+ #elif defined(GLFW_EXPOSE_NATIVE_X11) || defined(GLFW_EXPOSE_NATIVE_GLX)
   #include <X11/Xlib.h>
   #include <X11/extensions/Xrandr.h>
- #endif
-
- #if defined(GLFW_EXPOSE_NATIVE_WAYLAND)
+ #elif defined(GLFW_EXPOSE_NATIVE_WAYLAND)
   #include <wayland-client.h>
  #endif
 

@@ -1,4 +1,5 @@
 //go:build !hints
+// +build !hints
 
 package theme
 

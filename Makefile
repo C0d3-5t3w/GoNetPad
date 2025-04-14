@@ -12,18 +12,31 @@ LDFLAGS = -w -s
 help:
 	@echo "Makefile for $(MAIN_BINARY)"
 	@echo "Usage:"
-	@echo "  make all       - Build and run the application"
-	@echo "  make build     - Build the application"
-	@echo "  make clean     - Clean up build artifacts"
-	@echo "  make run       - Run the application"
-	@echo "  make deps      - Install dependencies"
-	@echo "  make help      - Show this help message"
+	@echo "  make all-win    - Build and run the application for windows"
+	@echo "  make all-darwin - Build and run the application for macOs"
+	@echo "  make build      - Build the application"
+	@echo "  make clean      - Clean up build artifacts"
+	@echo "  make run        - Run the application"
+	@echo "  make deps       - Install dependencies"
+	@echo "  make help       - Show this help message"
 
-all: clean deps ts sass build run
+all-win: clean deps ts sass build-win run
 
-build:
+all-darwin: clean deps ts sass build-darwin run
+
+build-win:
+	@echo "Building application for Windows..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=windows GOARCH=amd64 go build \
+		-ldflags="$(LDFLAGS)" \
+		-trimpath \
+		-o $(BUILD_DIR)/$(MAIN_BINARY).exe \
+		./$(CMD_DIR)/main.go
+
+build-darwin:
 	@echo "Building application..."
 	@mkdir -p $(BUILD_DIR)
+	@cp pkg/config/config.yaml $(BUILD_DIR)/config.yaml
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
 		-ldflags="$(LDFLAGS)" \
 		-trimpath \

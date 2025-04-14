@@ -17,7 +17,7 @@ type SelectEntry struct {
 func NewSelectEntry(options []string) *SelectEntry {
 	e := &SelectEntry{options: options}
 	e.ExtendBaseWidget(e)
-	e.Wrapping = fyne.TextWrap(fyne.TextTruncateClip)
+	e.Wrapping = fyne.TextTruncate
 	return e
 }
 
@@ -98,7 +98,7 @@ func (e *SelectEntry) SetOptions(options []string) {
 
 func (e *SelectEntry) popUpPos() fyne.Position {
 	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(e.super())
-	return entryPos.Add(fyne.NewPos(0, e.Size().Height-e.Theme().Size(theme.SizeNameInputBorder)))
+	return entryPos.Add(fyne.NewPos(0, e.Size().Height-theme.InputBorderSize()))
 }
 
 func (e *SelectEntry) setupDropDown() *Button {
@@ -110,6 +110,6 @@ func (e *SelectEntry) setupDropDown() *Button {
 		e.popUp.Resize(fyne.NewSize(e.Size().Width, e.popUp.MinSize().Height))
 	})
 	dropDownButton.Importance = LowImportance
-	dropDownButton.SetIcon(e.Theme().Icon(theme.IconNameArrowDropDown))
+	dropDownButton.SetIcon(theme.MenuDropDownIcon())
 	return dropDownButton
 }

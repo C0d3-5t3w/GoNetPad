@@ -1,4 +1,5 @@
 //go:build no_emoji
+// +build no_emoji
 
 package theme
 

@@ -29,7 +29,6 @@ func NewAccordion(items ...*AccordionItem) *Accordion {
 // Append adds the given item to this Accordion.
 func (a *Accordion) Append(item *AccordionItem) {
 	a.Items = append(a.Items, item)
-
 	a.Refresh()
 }
 
@@ -39,7 +38,6 @@ func (a *Accordion) Close(index int) {
 		return
 	}
 	a.Items[index].Open = false
-
 	a.Refresh()
 }
 
@@ -48,14 +46,15 @@ func (a *Accordion) CloseAll() {
 	for _, i := range a.Items {
 		i.Open = false
 	}
-
 	a.Refresh()
 }
 
 // CreateRenderer is a private method to Fyne which links this widget to its renderer
 func (a *Accordion) CreateRenderer() fyne.WidgetRenderer {
 	a.ExtendBaseWidget(a)
-	r := &accordionRenderer{container: a}
+	r := &accordionRenderer{
+		container: a,
+	}
 	r.updateObjects()
 	return r
 }
@@ -71,7 +70,6 @@ func (a *Accordion) Open(index int) {
 	if index < 0 || index >= len(a.Items) {
 		return
 	}
-
 	for i, ai := range a.Items {
 		if i == index {
 			ai.Open = true
@@ -79,31 +77,17 @@ func (a *Accordion) Open(index int) {
 			ai.Open = false
 		}
 	}
-
 	a.Refresh()
 }
 
-// OpenAll expands all items, note that your Accordion should have [MultiOpen] set to `true` for this to operate as
-// expected. For single-open accordions it will open only the first item.
+// OpenAll expands all items.
 func (a *Accordion) OpenAll() {
 	if !a.MultiOpen {
-		a.Open(0)
 		return
 	}
-
 	for _, i := range a.Items {
 		i.Open = true
 	}
-
-	a.Refresh()
-}
-
-// Prepend adds the given item to the beginning of this Accordion.
-//
-// Since: 2.6
-func (a *Accordion) Prepend(item *AccordionItem) {
-	a.Items = append([]*AccordionItem{item}, a.Items...)
-
 	a.Refresh()
 }
 
@@ -111,8 +95,8 @@ func (a *Accordion) Prepend(item *AccordionItem) {
 func (a *Accordion) Remove(item *AccordionItem) {
 	for i, ai := range a.Items {
 		if ai == item {
-			a.Items = append(a.Items[:i], a.Items[i+1:]...)
-			return
+			a.RemoveIndex(i)
+			break
 		}
 	}
 }
@@ -123,7 +107,6 @@ func (a *Accordion) RemoveIndex(index int) {
 		return
 	}
 	a.Items = append(a.Items[:index], a.Items[index+1:]...)
-
 	a.Refresh()
 }
 
@@ -135,21 +118,18 @@ type accordionRenderer struct {
 }
 
 func (r *accordionRenderer) Layout(size fyne.Size) {
-	th := r.container.Theme()
-	pad := th.Size(theme.SizeNamePadding)
-	separator := th.Size(theme.SizeNameSeparatorThickness)
-	dividerOff := (pad + separator) / 2
+	pad := theme.Padding()
+	dividerOff := (pad + theme.SeparatorThicknessSize()) / 2
 	x := float32(0)
 	y := float32(0)
 	hasOpen := 0
-
 	for i, ai := range r.container.Items {
 		h := r.headers[i]
 		min := h.MinSize().Height
 		y += min
 
 		if ai.Open {
-			y += pad + ai.Detail.MinSize().Height
+			y += pad
 			hasOpen++
 		}
 		if i < len(r.container.Items)-1 {
@@ -157,10 +137,7 @@ func (r *accordionRenderer) Layout(size fyne.Size) {
 		}
 	}
 
-	extra := (size.Height - y) / float32(hasOpen)
-	if extra < 0 {
-		extra = 0
-	}
+	openSize := (size.Height - y) / float32(hasOpen)
 	y = 0
 	for i, ai := range r.container.Items {
 		if i != 0 {
@@ -168,7 +145,7 @@ func (r *accordionRenderer) Layout(size fyne.Size) {
 			if i > 0 {
 				div.Move(fyne.NewPos(x, y-dividerOff))
 			}
-			div.Resize(fyne.NewSize(size.Width, separator))
+			div.Resize(fyne.NewSize(size.Width, theme.SeparatorThicknessSize()))
 		}
 
 		h := r.headers[i]
@@ -178,11 +155,8 @@ func (r *accordionRenderer) Layout(size fyne.Size) {
 		y += min
 
 		if ai.Open {
-			y += pad
 			d := ai.Detail
 			d.Move(fyne.NewPos(x, y))
-
-			openSize := ai.Detail.MinSize().Height + extra
 			d.Resize(fyne.NewSize(size.Width, openSize))
 			y += openSize
 		}
@@ -192,11 +166,8 @@ func (r *accordionRenderer) Layout(size fyne.Size) {
 	}
 }
 
-func (r *accordionRenderer) MinSize() fyne.Size {
-	th := r.container.Theme()
-	pad := th.Size(theme.SizeNamePadding)
-	size := fyne.Size{}
-
+func (r *accordionRenderer) MinSize() (size fyne.Size) {
+	pad := theme.Padding()
 	for i, ai := range r.container.Items {
 		if i != 0 {
 			size.Height += pad
@@ -211,8 +182,7 @@ func (r *accordionRenderer) MinSize() fyne.Size {
 			size.Height += pad
 		}
 	}
-
-	return size
+	return
 }
 
 func (r *accordionRenderer) Refresh() {
@@ -222,7 +192,6 @@ func (r *accordionRenderer) Refresh() {
 }
 
 func (r *accordionRenderer) updateObjects() {
-	th := r.container.Theme()
 	is := len(r.container.Items)
 	hs := len(r.headers)
 	ds := len(r.dividers)
@@ -252,10 +221,10 @@ func (r *accordionRenderer) updateObjects() {
 			}
 		}
 		if ai.Open {
-			h.Icon = th.Icon(theme.IconNameArrowDropUp)
+			h.Icon = theme.MenuDropUpIcon()
 			ai.Detail.Show()
 		} else {
-			h.Icon = th.Icon(theme.IconNameArrowDropDown)
+			h.Icon = theme.MenuDropDownIcon()
 			ai.Detail.Hide()
 		}
 		h.Refresh()

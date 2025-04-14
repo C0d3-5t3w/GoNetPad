@@ -1,8 +1,6 @@
 package widget
 
 import (
-	"image/color"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
@@ -15,8 +13,6 @@ var _ fyne.Widget = (*Separator)(nil)
 // Since: 1.4
 type Separator struct {
 	BaseWidget
-
-	invert bool
 }
 
 // NewSeparator creates a new separator.
@@ -33,16 +29,7 @@ func NewSeparator() *Separator {
 // Implements: fyne.Widget
 func (s *Separator) CreateRenderer() fyne.WidgetRenderer {
 	s.ExtendBaseWidget(s)
-	th := s.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-	var col color.Color
-	if s.invert {
-		col = th.Color(theme.ColorNameForeground, v)
-	} else {
-		col = th.Color(theme.ColorNameSeparator, v)
-	}
-	bar := canvas.NewRectangle(col)
-
+	bar := canvas.NewRectangle(theme.SeparatorColor())
 	return &separatorRenderer{
 		WidgetRenderer: NewSimpleRenderer(bar),
 		bar:            bar,
@@ -55,7 +42,8 @@ func (s *Separator) CreateRenderer() fyne.WidgetRenderer {
 // Implements: fyne.Widget
 func (s *Separator) MinSize() fyne.Size {
 	s.ExtendBaseWidget(s)
-	return s.BaseWidget.MinSize()
+	t := theme.SeparatorThicknessSize()
+	return fyne.NewSize(t, t)
 }
 
 var _ fyne.WidgetRenderer = (*separatorRenderer)(nil)
@@ -67,17 +55,11 @@ type separatorRenderer struct {
 }
 
 func (r *separatorRenderer) MinSize() fyne.Size {
-	return fyne.NewSquareSize(r.d.Theme().Size(theme.SizeNameSeparatorThickness))
+	t := theme.SeparatorThicknessSize()
+	return fyne.NewSize(t, t)
 }
 
 func (r *separatorRenderer) Refresh() {
-	th := r.d.Theme()
-	v := fyne.CurrentApp().Settings().ThemeVariant()
-
-	if r.d.invert {
-		r.bar.FillColor = th.Color(theme.ColorNameForeground, v)
-	} else {
-		r.bar.FillColor = th.Color(theme.ColorNameSeparator, v)
-	}
+	r.bar.FillColor = theme.SeparatorColor()
 	canvas.Refresh(r.d)
 }
