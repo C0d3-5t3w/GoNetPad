@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -46,8 +48,41 @@ func (e *Editor) GetSelectedText() string {
 	return ""
 }
 
+func (e *Editor) OpenFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	e.SetText(string(data))
+	e.SetFilePath(path)
+	e.StatusBar.ShowTemporaryMessage(fmt.Sprintf("Opened file: %s", path))
+	return nil
+}
+
+func (e *Editor) SaveFile() error {
+	if e.FilePath == "" {
+		return fmt.Errorf("no file path specified")
+	}
+	err := os.WriteFile(e.FilePath, []byte(e.GetText()), 0644)
+	if err != nil {
+		return err
+	}
+	e.StatusBar.ShowTemporaryMessage("File saved successfully")
+	return nil
+}
+
+func (e *Editor) SaveFileAs(path string) error {
+	err := os.WriteFile(path, []byte(e.GetText()), 0644)
+	if err != nil {
+		return err
+	}
+	e.SetFilePath(path)
+	e.StatusBar.ShowTemporaryMessage(fmt.Sprintf("File saved as: %s", path))
+	return nil
+}
+
 type TextArea struct {
-	TextWidget   *widget.RichText
+	TextWidget   *widget.Entry
 	Text         string
 	CursorRow    int
 	CursorColumn int
@@ -56,14 +91,14 @@ type TextArea struct {
 func (t *TextArea) SetText(text string) {
 	t.Text = text
 	if t.TextWidget != nil {
-		t.TextWidget.Segments = []widget.RichTextSegment{
-			&widget.TextSegment{Text: text},
-		}
-		t.TextWidget.Refresh()
+		t.TextWidget.SetText(text)
 	}
 }
 
 func (t *TextArea) GetText() string {
+	if t.TextWidget != nil {
+		return t.TextWidget.Text
+	}
 	return t.Text
 }
 
@@ -138,8 +173,9 @@ func NewEditor(window fyne.Window) *Editor {
 		FilePath: "",
 	}
 
-	fyneRichText := widget.NewRichText()
-	editor.TextArea.TextWidget = fyneRichText
+	fyneEntry := widget.NewEntry()
+	fyneEntry.MultiLine = true
+	editor.TextArea.TextWidget = fyneEntry
 
 	editor.LineNumbers = &LineNumbers{}
 	editor.StatusBar = &StatusBar{}
@@ -152,26 +188,26 @@ func NewEditor(window fyne.Window) *Editor {
 
 	tabContainer := container.NewDocTabs()
 
-	setupUI(editor, fyneRichText, lineNumbersView, statusBar, commandInput, tabContainer)
-	setupKeyBindings(editor, fyneRichText, commandInput, statusBar)
+	setupUI(editor, fyneEntry, lineNumbersView, statusBar, commandInput, tabContainer)
+	setupKeyBindings(editor, fyneEntry, commandInput, statusBar)
 
 	return editor
 }
 
 func setupUI(e *Editor,
-	textArea *widget.RichText,
+	textArea *widget.Entry,
 	lineNumbers *components.LineNumbersView,
 	statusBar *components.StatusBar,
 	commandInput *widget.Entry,
 	tabContainer *container.DocTabs) {
 
 	formatBtn := widget.NewButtonWithIcon("Format", theme.DocumentSaveIcon(), func() {
-		handleFormatCode(e, textArea, statusBar)
+		handleFormatCode(e, statusBar)
 	})
 
 	languageOptions := []string{"text", "go", "javascript", "typescript", "html", "css", "python", "rust", "c", "c++", "java"}
 	languageSelector := widget.NewSelect(languageOptions, func(selected string) {
-		updateSyntaxHighlighting(e, e.TextArea.Text, selected, tabContainer)
+		updateSyntaxHighlighting(e, e.TextArea.Text, selected)
 		statusBar.SetLanguage(selected)
 	})
 	languageSelector.SetSelected("text")
@@ -221,7 +257,7 @@ func setupUI(e *Editor,
 	e.Window.SetContent(mainContainer)
 }
 
-func setupKeyBindings(e *Editor, textArea *widget.RichText, commandInput *widget.Entry, statusBar *components.StatusBar) {
+func setupKeyBindings(e *Editor, textArea *widget.Entry, commandInput *widget.Entry, statusBar *components.StatusBar) {
 	e.Window.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
 		if e.CurrentMode == NormalMode {
 			switch key.Name {
@@ -283,7 +319,7 @@ func executeCommand(e *Editor, cmd string, lineNumbers *components.LineNumbersVi
 	}
 }
 
-func handleFormatCode(e *Editor, textArea *widget.RichText, statusBar *components.StatusBar) {
+func handleFormatCode(e *Editor, statusBar *components.StatusBar) {
 	formatted, err := tools.FormatCode(e.TextArea.Text)
 	if err != nil {
 		dialog.ShowError(err, e.Window)
@@ -291,13 +327,6 @@ func handleFormatCode(e *Editor, textArea *widget.RichText, statusBar *component
 	}
 	e.TextArea.SetText(formatted)
 	statusBar.ShowTemporaryMessage("Code formatted")
-}
-
-func (e *Editor) updateLineNumbers(text string) {
-	lines := strings.Split(text, "\n")
-	_ = lines
-	e.TextArea.CursorRow = 0
-	e.TextArea.CursorColumn = 0
 }
 
 func (e *Editor) SetFilePath(path string) {
@@ -312,15 +341,11 @@ func saveFile(e *Editor) {
 	e.StatusBar.ShowTemporaryMessage("File saved")
 }
 
-func updateSyntaxHighlighting(e *Editor, text string, language string, tabContainer *container.DocTabs) {
+func updateSyntaxHighlighting(e *Editor, text string, language string) {
 	if language == "text" && e.FilePath != "" {
-		language = tools.DetectLanguage(e.FilePath, text)
+		tools.DetectLanguage(e.FilePath, text)
 	}
 
-	highlighter := tools.NewSyntaxHighlighter(language)
-	highlightedSegments := highlighter.HighlightCodeAsRichTextSegments(text)
-
-	e.TextArea.TextWidget.Segments = highlightedSegments
-	e.TextArea.TextWidget.Refresh()
+	e.TextArea.TextWidget.SetText(text)
 	e.TextArea.Text = text
 }
