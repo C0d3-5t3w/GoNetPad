@@ -49,24 +49,26 @@ func (ln *LineNumbersView) SetLineCount(count int) {
 		ln.lineNumbers[i] = strconv.Itoa(i + 1)
 	}
 
-	ln.updateDisplay()
+	ln.updateDisplay()      // Update internal state
+	ln.BaseWidget.Refresh() // Then trigger a single refresh
 }
 
 func (ln *LineNumbersView) SetCurrentLine(line int) {
 	ln.currentLine = line
 	ln.updateDisplay()
+	ln.BaseWidget.Refresh() // Trigger a single refresh
 }
 
 func (ln *LineNumbersView) Hide() {
 	ln.visible = false
 	ln.VisibleState = false
-	ln.BaseWidget.Refresh() // changed from ln.Refresh()
+	ln.BaseWidget.Refresh() // This is fine since it's not in updateDisplay
 }
 
 func (ln *LineNumbersView) Show() {
 	ln.visible = true
 	ln.VisibleState = true
-	ln.BaseWidget.Refresh() // changed from ln.Refresh()
+	ln.BaseWidget.Refresh() // This is fine since it's not in updateDisplay
 }
 
 func (ln *LineNumbersView) Visible() bool {
@@ -85,7 +87,7 @@ func (ln *LineNumbersView) MinSize() fyne.Size {
 }
 
 func (ln *LineNumbersView) CreateRenderer() fyne.WidgetRenderer {
-	ln.updateDisplay()
+	ln.updateDisplay() // Only update internal state, don't trigger refresh
 	return widget.NewSimpleRenderer(ln.container)
 }
 
@@ -118,11 +120,14 @@ func (ln *LineNumbersView) updateDisplay() {
 
 	vbox := container.NewVBox(labels...)
 	objects = append(objects, vbox)
-	ln.container = container.NewStack(objects...) // Ensure container is initialized
-	ln.BaseWidget.Refresh()                       // changed from ln.Refresh()
+	ln.container = container.NewStack(objects...)
 }
 
-// Fix the implementation of UpdateLineNumbers
+func (ln *LineNumbersView) RefreshDisplay() {
+	ln.updateDisplay()
+	ln.BaseWidget.Refresh()
+}
+
 func (ln *LineNumbersView) UpdateLineNumbers(text string) {
 	if text == "" {
 		ln.SetLineCount(1)

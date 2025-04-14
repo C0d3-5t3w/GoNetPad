@@ -164,6 +164,7 @@ func NewEditor(window fyne.Window) *Editor {
 		editor.TextArea.Text = text
 		editor.updateLineNumbers(text)
 		lineNumbersView.UpdateLineNumbers(text)
+		lineNumbersView.Refresh()
 		statusBar.SetPosition(fyneTextArea.CursorRow, fyneTextArea.CursorColumn)
 		editor.History.Add(text)
 	}
