@@ -1,5 +1,0 @@
-webSocketPort: ":8081"
-htmlPort: ":8080"
-windowTitle: "GoNetPad"
-windowWidth: 800
-windowHeight: 600
